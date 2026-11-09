@@ -1,0 +1,29 @@
+# Eval dataset pins (proposal §7.1: datasets are NOT committed; sources are
+# checksum-pinned so `scripts/download_data.py` reproduces byte-identical
+# converted subsets. sha256 verified on 2026-11-09.)
+
+[[datasets]]
+id = "longmemeval_s"
+source = "huggingface:xiaowu0162/longmemeval-cleaned (split longmemeval_s_cleaned)"
+url = "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json"
+file = "data/datasets/longmemeval_s_cleaned.json"
+sha256 = "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442"  # verified against HF LFS oid AND local download
+size_bytes = 277383467
+license = "MIT"
+license_source = "HF dataset card 'License: mit' + repo xiaowu0162/LongMemEval LICENSE (MIT)"
+citation = "Wu et al., LongMemEval: Benchmarking Chat Assistants on Long-Term Interactive Memory, ICLR 2025, arXiv:2410.10813"
+pinned = "2026-11-09"
+note = "cleaned edition (2025-09): noisy interfering sessions removed upstream; a 2026 run must state it used the CLEANED file (this pin)."
+
+[[datasets]]
+id = "locomo10"
+source = "github:snap-research/locomo"
+url = "https://raw.githubusercontent.com/snap-research/locomo/3eb6f2c585f5e1699204e3c3bdf7adc5c28cb376/data/locomo10.json"
+file = "data/datasets/locomo10.json"
+sha256 = "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4"  # computed on first download (commit-pinned URL)
+size_bytes = 2805274
+license = "CC BY-NC 4.0"
+license_source = "repo LICENSE.txt (Attribution-NonCommercial 4.0) + paper appendix B.2"
+citation = "Maharana, Lee et al., Evaluating Very Long-Term Conversational Memory of LLM Agents, ACL 2024, arXiv:2402.17753"
+pinned = "2026-11-09"
+note = "NON-COMMERCIAL license: research/evaluation use only; disclosed in repo README. URL includes immutable commit sha for reproducibility."

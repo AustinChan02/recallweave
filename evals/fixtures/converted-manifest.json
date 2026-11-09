@@ -1,0 +1,43 @@
+[
+  {
+    "dataset": "locomo10",
+    "output": "data/datasets/converted/locomo10-t30-seed2026.jsonl",
+    "output_sha256": "f91506f2a63870f6f7d5330d11b00f5137f7a52345e7dd75f9fc72988659dc6f",
+    "items": 30,
+    "counts_by_type": {
+      "single-hop": 8,
+      "multi-hop": 8,
+      "temporal": 6,
+      "open-domain": 4,
+      "adversarial": 4
+    },
+    "source_sha256": "79fa87e90f04081343b8c8debecb80a9a6842b76a7aa537dc9fdf651ea698ff4",
+    "source_url": "https://raw.githubusercontent.com/snap-research/locomo/3eb6f2c585f5e1699204e3c3bdf7adc5c28cb376/data/locomo10.json",
+    "license": "CC BY-NC 4.0",
+    "total": 30,
+    "seed": 2026,
+    "generated_at": "2026-11-09T04:32:31.831554+00:00",
+    "note": "byte-identical rerun expected: same source pin + same seed + same quotas"
+  },
+  {
+    "dataset": "longmemeval_s",
+    "output": "data/datasets/converted/longmemeval_s-t30-seed2026.jsonl",
+    "output_sha256": "c03a2bcaa0257cb83f18ada1a349f65adec2ea6bbdc1c1c082fe6c95b819139c",
+    "items": 30,
+    "counts_by_type": {
+      "multi-session": 6,
+      "temporal-reasoning": 6,
+      "knowledge-update": 5,
+      "single-session-user": 5,
+      "single-session-assistant": 4,
+      "single-session-preference": 4
+    },
+    "source_sha256": "d6f21ea9d60a0d56f34a05b609c79c88a451d2ae03597821ea3d5a9678c3a442",
+    "source_url": "https://huggingface.co/datasets/xiaowu0162/longmemeval-cleaned/resolve/main/longmemeval_s_cleaned.json",
+    "license": "MIT",
+    "total": 30,
+    "seed": 2026,
+    "generated_at": "2026-11-09T04:32:33.209499+00:00",
+    "note": "byte-identical rerun expected: same source pin + same seed + same quotas"
+  }
+]
