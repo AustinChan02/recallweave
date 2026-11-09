@@ -11,7 +11,7 @@ test:
 	uv run pytest
 
 lint:
-	uv run ruff check src tests evals bench
+	uv run ruff check src tests evals bench scripts sdk_demo.py
 	uv run ruff format --check src tests evals bench
 
 db-up:

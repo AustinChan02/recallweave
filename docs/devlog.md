@@ -58,9 +58,9 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 ## 修正登记（对 proposal 的回写）
 见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006。
 
-## 待办（诚实未做清单）
-- [ ] 真 provider 评测运行（DeepSeek/Qwen/GLM，预算 ≤¥200）→ 从此数字才可上简历【实测填入】。
+## 待办（诚实未做清单 → 具体实施步骤见 `docs/TODO.md`）
+- [ ] 真 provider 评测运行（DeepSeek/Qwen/GLM，预算 ≤¥200）→ 从此数字才可上简历【实测填入】。**门槛：需要你的 API key + provider 选择。**
 - [ ] LongMemEval-S / LoCoMo：pin 版本 + license → `docs/eval-datasets.md` → 30 题人工复核流程。
-- [ ] P1：会话摘要（§4.4）、遗忘归档（§4.5）、`/v1/reflect` 真实现。
-- [ ] pg 集成测试在本机跑过一轮（Docker 起库 + `RECALLWEAVE_TEST_PG_URL`）。
-- [ ] mypy strict 与 CI（Makefile 留位）。
+- [ ] P1：会话摘要（§4.4）、遗忘归档（§4.5）、`/v1/reflect` 真实现（可离线开发）。
+- [x] pg 集成测试真跑过一轮（2026-11-09，Docker 起 pgvector，1 passed，修两 bug）。
+- [ ] mypy strict 与 CI（`make typecheck` + `.github/workflows/ci.yml`）。
