@@ -1,0 +1,6 @@
+{"qid": "mini-1", "type": "preference", "turns": [{"role": "user", "content": "我不吃辣，警官推荐微辣也不要。"}, {"role": "assistant", "content": "好的，不吃辣已记下。"}], "question": "用户能不能吃辣？", "reference": "不能吃辣", "setting": [{"role": "system", "content": "你是测试助手，用中文简短回答。"}]}
+{"qid": "mini-2", "type": "fact", "turns": [{"role": "user", "content": "我住在北京海淀区，公司在知春路地铁口。"}, {"role": "assistant", "content": "收到。"}], "question": "用户住在哪个城市？", "reference": "北京"}
+{"qid": "mini-3", "type": "conflict", "turns": [{"role": "user", "content": "我流利粤语，从小在广州长大。"}, {"role": "assistant", "content": "好的。"}, {"role": "user", "content": "更正：其实我只是能听粤语，说得一般，老家是长沙。"}, {"role": "assistant", "content": "明白。"}], "question": "用户的粤语水平怎么样？", "reference": "能听不太会说"}
+{"qid": "mini-4", "type": "event", "turns": [{"role": "user", "content": "上个月我去杭州出差三天，顺便去了西湖。"}, {"role": "assistant", "content": "不错。"}], "question": "用户上个月去哪里出差了？", "reference": "杭州"}
+{"qid": "mini-5", "type": "instruction", "turns": [{"role": "user", "content": "记住：今后我的任何代码示例都默认用 Python 3.12。"}, {"role": "assistant", "content": "记住了。"}], "question": "用户要求代码示例默认使用什么？", "reference": "Python 3.12"}
+{"qid": "mini-6", "type": "recency", "turns": [{"role": "user", "content": "本周五我要去体检，早上不能吃东西。"}, {"role": "assistant", "content": "祝顺利。"}], "question": "用户本周五要做什么？注意事项是什么？", "reference": "体检 空腹"}

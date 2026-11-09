@@ -1,0 +1,50 @@
+{
+  "schema": "rw-bench-latency/1",
+  "provider": {
+    "embedding": "hash",
+    "db": "sqlite",
+    "note": "scope: in-process sqlite + hash embeddings, single-threaded client; excludes network/OS jitter; NOT comparable to prod pg+HNSW numbers."
+  },
+  "generated_at": "2026-11-09T03:32:11.229163+00:00",
+  "rows": [
+    {
+      "memory_count": 10,
+      "compile_ms": {
+        "p50": 3.875,
+        "p95": 6.262,
+        "n": 30
+      },
+      "search_ms": {
+        "p50": 2.964,
+        "p95": 5.924,
+        "n": 30
+      }
+    },
+    {
+      "memory_count": 100,
+      "compile_ms": {
+        "p50": 7.87,
+        "p95": 13.161,
+        "n": 30
+      },
+      "search_ms": {
+        "p50": 4.542,
+        "p95": 6.58,
+        "n": 30
+      }
+    },
+    {
+      "memory_count": 1000,
+      "compile_ms": {
+        "p50": 27.782,
+        "p95": 74.898,
+        "n": 30
+      },
+      "search_ms": {
+        "p50": 23.989,
+        "p95": 40.812,
+        "n": 30
+      }
+    }
+  ]
+}

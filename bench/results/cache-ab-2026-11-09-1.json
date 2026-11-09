@@ -1,0 +1,26 @@
+{
+  "schema": "rw-bench-cache-ab/1",
+  "generated_at": "2026-11-09T03:32:14.518521+00:00",
+  "rounds": 6,
+  "question": "用户怎么安排睡眠？",
+  "v2_content_addressed": {
+    "unique_prefixes": 1,
+    "stable": true
+  },
+  "v1_score_drift": {
+    "unique_prefixes": 6,
+    "drifted": true
+  },
+  "provider": {
+    "embedding": "hash",
+    "db": "sqlite",
+    "labels": [
+      "local-compiler"
+    ]
+  },
+  "uncomputed": {
+    "cache_hit_tokens": null,
+    "ttft_ms": null,
+    "note": "cache-hit/TTFT deltas need a REAL provider's usage or timing data; mock mode cannot measure them. This script proves the STABILITY precondition only (the honest half of the experiment)."
+  }
+}

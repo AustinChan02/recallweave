@@ -1,0 +1,85 @@
+{
+  "schema": "rw-eval-result/1",
+  "run_id": "2be26a31000f",
+  "date": "2026-11-09",
+  "condition": "C0",
+  "dataset": "evals/fixtures/mini_eval.jsonl",
+  "protocol": "context-evidence-recall (offline proxy)",
+  "budget_tokens": 600,
+  "provider": {
+    "llm": "mock",
+    "embedding": "hash",
+    "judge": "mock:keyword-coverage",
+    "note": "ALL outputs are mock (scripted extraction, hash embeddings, keyword judge). Metrics describe pipeline mechanics ONLY and must not be quoted as measured LLM quality. Real-provider runs require API keys (pending work)."
+  },
+  "items": [
+    {
+      "qid": "mini-1",
+      "item_type": "preference",
+      "judged": true,
+      "score": 1.0,
+      "rationale": "1/1 reference keywords present",
+      "tokens": 47,
+      "provider": "local-truncate"
+    },
+    {
+      "qid": "mini-2",
+      "item_type": "fact",
+      "judged": true,
+      "score": 1.0,
+      "rationale": "1/1 reference keywords present",
+      "tokens": 40,
+      "provider": "local-truncate"
+    },
+    {
+      "qid": "mini-3",
+      "item_type": "conflict",
+      "judged": true,
+      "score": 0.0,
+      "rationale": "0/2 reference keywords present",
+      "tokens": 67,
+      "provider": "local-truncate"
+    },
+    {
+      "qid": "mini-4",
+      "item_type": "event",
+      "judged": true,
+      "score": 1.0,
+      "rationale": "1/1 reference keywords present",
+      "tokens": 46,
+      "provider": "local-truncate"
+    },
+    {
+      "qid": "mini-5",
+      "item_type": "instruction",
+      "judged": true,
+      "score": 1.0,
+      "rationale": "3/3 reference keywords present",
+      "tokens": 44,
+      "provider": "local-truncate"
+    },
+    {
+      "qid": "mini-6",
+      "item_type": "recency",
+      "judged": true,
+      "score": 0.5,
+      "rationale": "1/2 reference keywords present",
+      "tokens": 49,
+      "provider": "local-truncate"
+    }
+  ],
+  "metrics": {
+    "accuracy": 0.75,
+    "judged": 6,
+    "total": 6,
+    "unjudged": 0,
+    "judged_fraction": 1.0,
+    "tokens_total_estimate": 293
+  },
+  "uncomputed": {
+    "cost_yuan": null,
+    "ttft_ms": null,
+    "cache_hit_tokens": null,
+    "note": "provider-usage metrics need a REAL provider; always null under mock — never fabricated."
+  }
+}
