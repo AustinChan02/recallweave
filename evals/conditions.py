@@ -18,6 +18,7 @@ Conditions (§7.2):
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -149,6 +150,48 @@ async def run_condition(condition: str, item: dict, item_root: Path, budget: int
             await svc.aclose()
 
 
+ANSWER_SYSTEM = """You answer memory-QA questions for an evaluation.
+Use ONLY the memory context in the system message and the transcript above —
+never invent facts. Answer in the question's language, at most two sentences.
+If the context lacks the answer, say you do not know."""
+
+
+async def _produce_answer(
+    answer_adapter, payload: dict, question: str, answer_system: str = ""
+) -> tuple[str, str, float | None, dict]:
+    """Real protocol: ask the answer model over the condition's emitted context.
+    Echo protocol (offline proxy, no adapter): answer = emitted context text.
+
+    Real mode sends (memory system block + answer policy, transcript, question)
+    to the answer model; its response — not the context — is what gets graded.
+    """
+    if answer_adapter is None:
+        echo = "\n".join(m.get("content", "") for m in payload["context_messages"])
+        return echo, payload.get("provider", "echo"), None, {}
+
+    cms = payload["context_messages"]
+    memory_block = cms[0]["content"] if cms and cms[0].get("role") == "system" else ""
+    rest = cms[1:]
+    if rest and str(rest[-1].get("content", "")).strip() == str(question).strip():
+        rest = rest[:-1]  # the question is passed explicitly below, not twice
+    transcript = "\n".join(f"[{m.get('role', 'user')}] {m.get('content', '')}" for m in rest)
+    user = f"{transcript}\n\nQUESTION: {question}\n请仅依据上文作答。".strip()
+    instructions = answer_system or ANSWER_SYSTEM
+    system = f"{memory_block}\n\n{instructions}" if memory_block else instructions
+
+    t0 = time.perf_counter()
+    answer = (await answer_adapter.chat_text(system, user)).strip()
+    wall_ms = (time.perf_counter() - t0) * 1000
+    usage = dict(getattr(answer_adapter, "last_usage", {}) or {})
+    return answer, f"answered-by:{getattr(answer_adapter, 'provider_label', 'unknown')}", wall_ms, usage
+
+
+def _judge_usage(judge) -> dict:
+    """Provider usage of the judge's LATEST call (OpenAICompatAdapter.last_usage)."""
+    adapter = getattr(judge, "adapter", None)
+    return dict(getattr(adapter, "last_usage", None) or {})
+
+
 @dataclass
 class ItemRecord:
     qid: str
@@ -158,6 +201,12 @@ class ItemRecord:
     rationale: str
     tokens: int
     provider: str
+    answer_provider: str = "echo-context"
+    answer: str = ""
+    tokens_answer: int = 0
+    tokens_judge: int = 0
+    cost_yuan_est: float = 0.0
+    wall_ms_answer: float | None = None
 
 
 @dataclass
@@ -171,19 +220,48 @@ class ConditionRun:
         judged = [r for r in self.records if r.judged]
         unjudged = [r for r in self.records if not r.judged]
         scores = [r.score for r in judged if r.score is not None]
+        walls = [r.wall_ms_answer for r in self.records if r.wall_ms_answer is not None]
+
+        def pct(q: float) -> float | None:
+            if not walls:
+                return None
+            ordered = sorted(walls)
+            return round(ordered[min(len(ordered) - 1, int(q / 100 * len(ordered)))], 1)
+
         return {
             "accuracy": (sum(scores) / len(scores)) if scores else None,
             "judged": len(judged),
             "total": len(self.records),
             "unjudged": len(unjudged),
             "judged_fraction": (round(len(judged) / len(self.records), 6) if self.records else None),
-            "tokens_total_estimate": sum(r.tokens for r in self.records),
+            "tokens_context_est": sum(r.tokens for r in self.records),
+            "tokens_answer": sum(r.tokens_answer for r in self.records),
+            "tokens_judge": sum(r.tokens_judge for r in self.records),
+            "cost_yuan_upper_est": round(sum(r.cost_yuan_est for r in self.records), 6),
+            "answer_wall_ms_p50": pct(50),
+            "answer_wall_ms_p95": pct(95),
         }
 
 
 async def run_harness(
-    dataset_path: Path, conditions: list[str], judge, *, budget: int, tmp_root: Path
+    dataset_path: Path,
+    conditions: list[str],
+    judge,
+    *,
+    budget: int,
+    tmp_root: Path,
+    answer_adapter=None,
+    answer_system: str = "",
+    cost_guard=None,
 ) -> list[ConditionRun]:
+    """answer_adapter=None → offline echo protocol (honest proxy metric).
+
+    Real mode: every condition emits its context; the ANSWER model receives
+    (memory system block, transcript, question) and its response — not the
+    context — is what the judge grades. cost_guard (evals.pricing.CostGuard)
+    is charged for every real call and aborts when the upper-bound estimate
+    exceeds its limit (write-once files stay untouched: no half-written runs).
+    """
     items = [
         json.loads(line) for line in dataset_path.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
@@ -195,15 +273,47 @@ async def run_harness(
         run = ConditionRun(condition=condition)
         for item in items:
             payload = await run_condition(condition, item, item_root, budget)
-            answer = "\n".join(m.get("content", "") for m in payload["context_messages"])
+            question = item["question"]
             tok = counter()
-            tokens = sum(tok.count(m.get("content", "")) for m in payload["context_messages"])
+            tokens_ctx = sum(tok.count(m.get("content", "")) for m in payload["context_messages"])
             try:
-                judgment = await judge.judge(
-                    question=item["question"],
-                    reference=item["reference"],
-                    answer=answer,
+                answer, answer_provider, wall_ms, usage = await _produce_answer(
+                    answer_adapter, payload, question, answer_system
                 )
+            except Exception as exc:  # noqa: BLE001 — fail-closed per item
+                run.records.append(
+                    ItemRecord(
+                        qid=item["qid"],
+                        item_type=item.get("type", "fact"),
+                        judged=False,
+                        score=None,
+                        rationale=f"unjudged: answer step failed: {type(exc).__name__}: {exc}"[:200],
+                        tokens=tokens_ctx,
+                        provider=payload["provider"],
+                    )
+                )
+                continue  # unjudged, never faked
+
+            # Charge the ANSWER call before judging: a guarded over-budget run
+            # aborts here, fail-closed, before any result file could be written.
+            cost_here = 0.0
+            if cost_guard is not None and usage:
+                cost_here = cost_guard.charge(getattr(answer_adapter, "_model", "*"), usage)
+            # provider-reported completion tokens are facts; fall back to the
+            # local estimate only for adapters that expose no usage (mock).
+            tokens_answer = int((usage or {}).get("completion_tokens") or 0) or tok.count(answer)
+
+            try:
+                judgment = await judge.judge(question=question, reference=item["reference"], answer=answer)
+                judge_usage = _judge_usage(judge)  # read AFTER the call — no stale slot
+                tokens_judge = int(judge_usage.get("prompt_tokens") or 0) + int(
+                    judge_usage.get("completion_tokens") or 0
+                )
+                cost_judge = 0.0
+                if cost_guard is not None and judge_usage:
+                    cost_judge = cost_guard.charge(
+                        getattr(getattr(judge, "adapter", None), "_model", "*"), judge_usage
+                    )
                 run.records.append(
                     ItemRecord(
                         qid=item["qid"],
@@ -211,8 +321,14 @@ async def run_harness(
                         judged=True,
                         score=round(judgment.score, 6),
                         rationale=judgment.rationale,
-                        tokens=tokens,
+                        tokens=tokens_ctx,
                         provider=payload["provider"],
+                        answer_provider=answer_provider,
+                        answer=answer[:400],
+                        tokens_answer=tokens_answer,
+                        tokens_judge=tokens_judge,
+                        cost_yuan_est=round(cost_here + cost_judge, 6),
+                        wall_ms_answer=round(wall_ms, 1) if wall_ms is not None else None,
                     )
                 )
             except Exception as exc:  # noqa: BLE001 — unjudged, by protocol design
@@ -223,8 +339,14 @@ async def run_harness(
                         judged=False,
                         score=None,
                         rationale=f"unjudged: {type(exc).__name__}: {exc}"[:200],
-                        tokens=tokens,
+                        tokens=tokens_ctx,
                         provider=payload["provider"],
+                        answer_provider=answer_provider,
+                        answer=answer[:400],
+                        tokens_answer=tokens_answer,
+                        tokens_judge=0,
+                        cost_yuan_est=round(cost_here, 6),
+                        wall_ms_answer=round(wall_ms, 1) if wall_ms is not None else None,
                     )
                 )
         runs.append(run)

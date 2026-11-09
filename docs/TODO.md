@@ -7,26 +7,24 @@
 
 ## Track P0 · 真 provider 评测（解锁简历数字的唯一路径）
 
-### 阶段 0：准备【需要你提供：API key + provider 决策】
-建议 DeepSeek（OpenAI 兼容、按量便宜、控制台可查 cache-hit tokens，正好喂 §7.4 实验）。Qwen/GLM 备选同价档。
+### 阶段 0：准备【需要你提供：API key + provider 决策】【✅ 2026-11-09 完成】
+- [x] 0.1 `.env` 修正为 adapter 契约（provider=openai_compat；base_url `https://api.deepseek.com`，adapter 自拼 `/chat/completions`；模型 `deepseek-flash` 经 `GET /models` 验证存在）。
+- [x] 0.2 连通性冒烟：`chat_json` 真调用返回严格 JSON（花生过敏例，provider=openai_compat:deepseek-flash，wall=1450ms）。
+- [x] 0.3 预 spend 核对：待用户控制台截图（首次用量 <¥0.1 量级）。
 
-| 步骤 | 内容 |
-|---|---|
-| 0.1 | `cp .env.example .env`，填 `RECALLWEAVE_LLM_PROVIDER=openai_compat` / `BASE_URL=https://api.deepseek.com/v1` / `API_KEY` / `MODEL=deepseek-chat`（.gitignore 已挡 .env）|
-| 0.2 | 连通性冒烟：`uv run python - <<'EOF' … from_env().llm_adapter … chat_json 一次提取` → 断言 `provider == "openai_compat:deepseek-chat"`；顺手验证 429/超时重试路径日志 |
-| 0.3 | 预 spend 核对：控制台用量 ≈ 一次提取调用（<¥0.1） |
+### 阶段 1：eval 框架升级为"可在线"【✅ 2026-11-09 完成，schema `rw-eval-result/2`】
+- [x] 1.1 回答步落地：`evals/conditions.py::_produce_answer`（echo 分支逐字节保持——run3 vs run2 逐项对照一致）；真实分支 judge 判回答而非上下文。
+- [x] 1.2 `--judge llm` + `JudgeVerdict` schema + 结果文件 `provider.answered_by` / `usage` / `budget_guard` / `uncomputed` 全部落盘（run4 真跑验证）。
+- [x] 1.3 预算护栏：`evals/pricing.py`（CostGuard fail-closed）+ `configs/prices.toml`（保守上界占位）。实测：—max-cost-yuan 1e-05 → ¥0.0017 时中止且 0 文件落盘。
+- [x] 1.4 ADR-006 在线化修订登记 + `evals/human-review-template.md` 模板。
 
-验收：`.env` 生效 + `make run` 下 `/v1/health` 显示 `llm_provider=openai_compat:<model>`。
-
-### 阶段 1：eval 框架升级为"可在线"（纯代码，可先做）
-| 步骤 | 改动 | 验收 |
+| 真跑记录（2026-11-09 mini 6题 × C0/C3，judge=回答同模型） | C0 | C3 |
 |---|---|---|
-| 1.1 | `evals/conditions.py::run_condition` 增加 **answer 步**：把 `context_messages + question` 发给 answer 模型（`OpenAICompatAdapter.chat_text`），返回 answer；mock 模式保持 echo 协议（分支显式声明） | mock 冒烟结果与 run1/run2 逐字节一致（协议未变） |
-| 1.2 | `evals/run_eval.py`：`--judge llm` 加入 choices；定义 `JudgeVerdict(BaseModel){score, rationale}` 喂 `LLMJudge`；结果文件增 `provider.answered_by` / `usage{answer_tokens, judge_tokens}` | `--judge llm` 在 mini 6 题真跑一轮 |
-| 1.3 | **预算护栏**：`configs/prices.toml`（单价+控制台出处注释）；每次调用后累计估算成本，超 `--max-cost-yuan` 即 SystemExit 拒跑（fail-closed，不静默） | 人为调小上限 → 运行中止且留痕 |
-| 1.4 | 结果文件协议字段升级：`protocol: "qa-accuracy (real provider)"`；人工复核列（30 题模板 `evals/human-review-template.md`） | 与 ADR-006 差异登记同步 |
+| accuracy（judged 6/6） | 0.9167 | 0.9167 |
+| tokens（provider 口径） | ans 312 / judge 1574 | ans 273 / judge 1501 |
+| 上界成本 est | ¥0.0217 | ¥0.0210 |
 
-预算速算（deepseek-chat 量级，以控制台价为准）：mini 6 题 × C0/C3 ≈ 3 次回答 + 6 次 judge ≈ <¥1；30 题 × 2 条件 ≈ 120 次调用 ≈ ¥2–5；完整 150 题 × 4 条件在 ¥20 档内可控，护栏默认 `--max-cost-yuan 200`。
+预算速算（ Prices/Tokens 待控制台核对后才能转成 `cost_yuan` ）：run4 合计 3855 in / 1705 out tokens，占位上界合计 **¥0.0427**（≈¥0.3/千题量级，远低于 ¥200）。
 
 ### 阶段 2：数据集入库
 | 步骤 | 内容 | 产出 |

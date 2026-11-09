@@ -77,6 +77,9 @@ class OpenAICompatAdapter:
         )
         self._url = base_url.rstrip("/") + "/chat/completions"
         self.provider_label = f"openai_compat:{model}"
+        # provider usage of the LATEST successful call (prompt/completion tokens);
+        # consumers (eval harness cost accounting) read it right after each call.
+        self.last_usage: dict = {}
 
     async def aclose(self) -> None:  # pragma: no cover - resource path
         await self._client.aclose()
@@ -85,7 +88,7 @@ class OpenAICompatAdapter:
         body = self._body(system, user, json_mode=True)
 
         async def once() -> dict:
-            content = await self._send_once(body)
+            content, _usage = await self._send_once(body)
             parsed = parse_json_strict(content)
             return validate_one(schema, parsed)  # schema drift IS retryable
 
@@ -95,7 +98,8 @@ class OpenAICompatAdapter:
         body = self._body(system, user, json_mode=False)
 
         async def once() -> str:
-            return (await self._send_once(body)).strip()
+            content, _usage = await self._send_once(body)
+            return content.strip()
 
         return await self._with_retries(once, "chat_text")
 
@@ -130,7 +134,10 @@ class OpenAICompatAdapter:
                 f"provider {exc.response.status_code}: {exc.response.text[:200]}",
                 detail={"status": exc.response.status_code},
             ) from exc
-        return _extract_content(resp.json())
+        payload = resp.json()
+        usage = payload.get("usage") or {}
+        self.last_usage = usage  # only SUCCESSFUL attempts ever reach here
+        return _extract_content(payload), self.last_usage
 
     async def _with_retries(self, factory, label: str):
         """Bounded retries over ONE attempt factory: transport failures AND

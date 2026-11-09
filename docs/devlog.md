@@ -55,12 +55,62 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 ### Settings 校验器的教训
 预算四层从「三层」改为「四层占总预算」时，测试里只 override 单层导致 sum==1 validator 拒绝（0.9 / 1.1 / 0.72 各踩一次）。validator 是对的，测试是错的——这类快速失败正是配置校验的价值。
 
+## 2026-11-09 · Day 2 真 provider 评测上线（阶段 0+1 完成）
+
+### .env 契约与首个真调用
+- 用户密钥到位后核对 `.env`：原值 `RECALLWEAVE_LLM_PROVIDER=DeepSeek` 不符 adapter 契约
+  （`Literal["mock","openai_compat"]`，启动即崩）→ 修正为 `openai_compat`。
+  base_url `https://api.deepseek.com` 可用（adapter 自拼 `/chat/completions`）；
+  `GET /models` 实证模型清单 `['deepseek-flash', 'deepseek-v4-pro']`（用户的
+  `deepseek-flash` 真实存在）。
+- 首个真调用：`adapter.chat_json(EXTRACT_SYSTEM, ...)` → 严格 JSON 抽取成功
+  （provider=openai_compat:deepseek-flash，wall=1450ms）。
+
+### Eval 在线化（schema `rw-eval-result/2`）
+- **回答步**：`run_harness(answer_adapter=...)` 真分支把（memory 系统块 +
+  `ANSWER_SYSTEM` 策略 + 转写（去尾问）+ 显式 QUESTION）发给回答模型；
+  judge 判**回答**，不是上下文回显。echo 分支协议不变——`run3`(echo) 与
+  `run2` 逐项 score/rationale/tokens/provider 对照一致（协议字节等价复核）。
+- **用量记账**：`OpenAICompatAdapter.last_usage`（仅成功调用写入——失败
+  调用绝不计 spend）；answer/completion tokens 全部取 provider usage payload，
+  本地估算仅剩上下文列（`tokens_context_est` 取代 `tokens_total_estimate`）。
+- **judge升级**：`JudgeVerdict{score∈[0,1], rationale}` 严格 schema；
+  judge usage 在其调用后读取并同样纳入护栏计费。
+- **成本护栏**：`evals/pricing.py`（CostGuard）+ `configs/prices.toml`。
+  现阶段单价是**保守上界占位**（deepseek-flash 假设 4/16 ¥/M in/out），
+  控制台核对前 `cost_yuan` 恒 null——护栏偏高只会提前中止，绝不会低报。
+  现场证据：`--max-cost-yuan 1e-05` → 首次计入 0.0017¥ 即 SystemExit，
+  结果目录**连创建都没有发生**。
+- **拒跑三连**（网络调用前）：provider 模式须 openai_compat + LLM judge；
+  真实回答永不给 mock keyword judge（防"mock judge + 真答冒充实测"）；
+  三条分支各自实测触发。
+
+### 真跑记录（mini 6 题 × C0/C3，回答+judge 同模型 deepseek-flash）
+- 6/6 judged，C0 accuracy 0.9167 / C3 accuracy 0.9167（**qa-accuracy 协议，
+  须 30 题人工复核 + 全量 run 后才可引用进简历**）。
+- 24 真调用；3855 in / 1705 out（provider 口径）；占位上界合计 **¥0.0427**
+  （护栏上限 ¥2，实际支出远低于上界估算）。
+- sample 读回：mini-1 正确拒"吃辣"（0 miss），mini-3 judge 给 0.5 并
+  说明"能听粤语/说得一般 表述偏差"——judge 不是全自动满分机器。
+- 文件落盘：echo 冒烟 = `run3`（C0/C3，协议标签 offline proxy + 新 schema），
+  真跑 = `run4`（C0/C3，协议标签 qa-accuracy·real provider）；run 编号顺延，
+  原有 run1/run2 未触碰。
+
+### 测试
+- 新增：usage capture（成功后才有值/失败不清零）、CostGuard 累计超额中止、
+  price fallback、real-mode wiring（MockLLMAdapter 作 answer adapter 的离线
+  真分支全链路）、answer 失败→unjudged、echo 协议回归。
+- 基线：**89 passed, 1 skipped**；`make lint` 全绿（52 files formatted）。
+
 ## 修正登记（对 proposal 的回写）
-见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006。
+见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006
+（ADR-006 已含 2026-11-09 在线化修订段）。
 
 ## 待办（诚实未做清单 → 具体实施步骤见 `docs/TODO.md`）
-- [ ] 真 provider 评测运行（DeepSeek/Qwen/GLM，预算 ≤¥200）→ 从此数字才可上简历【实测填入】。**门槛：需要你的 API key + provider 选择。**
-- [ ] LongMemEval-S / LoCoMo：pin 版本 + license → `docs/eval-datasets.md` → 30 题人工复核流程。
+- [x] 真 provider 评测**框架**上线 + mini 真跑（2026-11-09，C0/C3 均 0.9167，6/6 judged；数字属 mini 冒烟，全量 run + 30 题人工复核前不得进简历）。
+- [x] 预算护栏 fail-closed 上线（占位上界价；控制台核对待办见 P0 阶段 3）。
+- [ ] LongMemEval-S / LoCoMo：pin 版本 + license → `scripts/download_data.py` → `docs/eval-datasets.md`（P0 阶段 2）。
+- [ ] 全量 run + 30 题人工复核 + 控制台价核对→ 回填 `RESUME-READY.md` A§1.4（P0 阶段 3）。
 - [ ] P1：会话摘要（§4.4）、遗忘归档（§4.5）、`/v1/reflect` 真实现（可离线开发）。
 - [x] pg 集成测试真跑过一轮（2026-11-09，Docker 起 pgvector，1 passed，修两 bug）。
 - [ ] mypy strict 与 CI（`make typecheck` + `.github/workflows/ci.yml`）。

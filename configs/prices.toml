@@ -1,0 +1,21 @@
+# Cost-table for the eval budget guard (NOT a reported price source).
+# These figures are CONSERVATIVE UPPER-BOUND placeholders assumed on 2026-11-09;
+# replace each value with the console-printed price and record the date/source
+# here before quoting ANY cost number (proposal §7.3: cost_yuan must be real).
+# The guard errs on the safe side with uppers — over-estimating spend only
+# makes runs abort earlier, never under-reports spend.
+
+[[models]]
+model = "deepseek-flash"
+input_yuan_per_m = 4.0   # placeholder upper bound; to be replaced with console price
+output_yuan_per_m = 16.0 # placeholder upper bound; to be replaced with console price
+
+[[models]]
+model = "deepseek-v4-pro"
+input_yuan_per_m = 8.0   # placeholder upper bound
+output_yuan_per_m = 32.0 # placeholder upper bound
+
+[[models]]
+model = "*"
+input_yuan_per_m = 16.0   # fallback: paranoid upper bound for unknown models
+output_yuan_per_m = 64.0

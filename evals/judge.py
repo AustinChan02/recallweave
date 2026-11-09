@@ -56,6 +56,13 @@ class MockKeywordJudge:
         )
 
 
+class JudgeVerdict(BaseModel):
+    """Strict schema the LLM judge must return (validates provider output)."""
+
+    score: float = Field(ge=0.0, le=1.0)
+    rationale: str = ""
+
+
 class LLMJudge:
     """Rubric judge over any LLMAdapter (proposal: cheap model + human spot check)."""
 
@@ -64,7 +71,7 @@ class LLMJudge:
 Judge ONLY correctness of the answer vs the reference. Ignore style/language.
 Output JSON object {"score": <float>, "rationale": "<short>"} and nothing else."""
 
-    def __init__(self, adapter: LLMAdapter, schema: type[BaseModel]) -> None:
+    def __init__(self, adapter: LLMAdapter, schema: type[BaseModel] = JudgeVerdict) -> None:
         self.adapter = adapter
         self.schema = schema
         self.judge_label = getattr(adapter, "provider_label", "unknown-judge")

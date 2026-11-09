@@ -164,3 +164,41 @@ class TestMockAdapter:
         assert MockLLMAdapter([]).provider_label == "mock"
         custom = MockLLMAdapter([], declare_provider="mock:scripted")
         assert custom.provider_label == "mock:scripted"
+
+
+class TestUsageCapture:
+    """provider usage payload surfaces via adapter.last_usage (cost guard input)."""
+
+    @pytest.mark.asyncio
+    async def test_last_usage_after_success(self):
+        payload = _chat_response('{"ok": true}')
+        payload["usage"] = {"prompt_tokens": 41, "completion_tokens": 9, "total_tokens": 50}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json=payload)
+
+        adapter = _adapter(handler)
+        assert adapter.last_usage == {}  # nothing before the first call
+        await adapter.chat_json("s", "u", _Out)
+        assert adapter.last_usage == {"prompt_tokens": 41, "completion_tokens": 9, "total_tokens": 50}
+        await adapter.chat_text("s", "u")
+        assert adapter.last_usage["completion_tokens"] == 9  # same call revisited
+        await adapter.aclose()
+
+    @pytest.mark.asyncio
+    async def test_failed_call_never_records_usage(self):
+        # 200 + usage once, then a hard 401: last_usage must keep the LAST
+        # SUCCESSFUL call's numbers — failures are never counted as spend.
+        ok = _chat_response('{"ok": true}')
+        ok["usage"] = {"prompt_tokens": 41, "completion_tokens": 9}
+        responses = [httpx.Response(200, json=ok), httpx.Response(401, json={"error": "bad key"})]
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return responses.pop(0) if responses else httpx.Response(401, json={"error": "bad key"})
+
+        adapter = _adapter(handler)
+        await adapter.chat_json("s", "u", _Out)
+        with pytest.raises(ProviderError):
+            await adapter.chat_json("s", "u", _Out)
+        assert adapter.last_usage["completion_tokens"] == 9
+        await adapter.aclose()
