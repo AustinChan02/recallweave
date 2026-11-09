@@ -3,6 +3,7 @@ name = "recallweave"
 version = "0.1.0"
 description = "Memory layer + context compiler for long-lived agents (Memory as a Service), eval-driven."
 requires-python = ">=3.12"
+license = { file = "LICENSE" }
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
