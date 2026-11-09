@@ -53,7 +53,7 @@ class TestTransport:
             attempts.append(1)
             if len(attempts) == 1:
                 return httpx.Response(500, json={"error": "boom"})
-            return httpx.Response(200, json=_chat_response('{}'))
+            return httpx.Response(200, json=_chat_response("{}"))
 
         adapter = _adapter(handler)
         out = await adapter.chat_json("s", "u", _Out)
@@ -71,9 +71,7 @@ class TestTransport:
         monkeypatch.setattr("recallweave.adapters.llm.asyncio.sleep", fake_sleep)
 
         def handler(request: httpx.Request) -> httpx.Response:
-            return httpx.Response(
-                429, json={"error": "rate limited"}, headers={"retry-after": "7"}
-            )
+            return httpx.Response(429, json={"error": "rate limited"}, headers={"retry-after": "7"})
 
         adapter = _adapter(handler)
         with pytest.raises(ProviderError):
@@ -131,7 +129,7 @@ class TestTransport:
 
 class TestParseJsonStrict:
     def test_fence_stripped(self):
-        assert parse_json_strict("```json\n{\"a\": 1}\n```") == {"a": 1}
+        assert parse_json_strict('```json\n{"a": 1}\n```') == {"a": 1}
 
     def test_requires_object(self):
         with pytest.raises(ProviderSchemaError):

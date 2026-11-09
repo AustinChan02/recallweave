@@ -200,9 +200,7 @@ async def compile_context(
         q_emb = (await embedder.embed_many([query]))[0]
         vec_ids = [
             str(mid)
-            for mid, _ in await vector.search(
-                user_id=user_id, query_embedding=q_emb, k=settings.vector_top_m
-            )
+            for mid, _ in await vector.search(user_id=user_id, query_embedding=q_emb, k=settings.vector_top_m)
         ]
     lex_ids = lexical_lane(query, rows, settings.lexical_top_m) if query else []
     rec_ids = recency_lane(rows, settings.recency_top_m)
@@ -255,12 +253,8 @@ async def compile_context(
     persona_tokens = tok.count(settings.persona_line)
     headers_tokens = sum(tok.count(t) for slot, t in tagged_parts if slot == "headers")
 
-    used_profile = sum(
-        tok.count(f"- {m.content}") for m in semantic if m.content in profile_out
-    )
-    used_episodic = sum(
-        tok.count(f"- {m.content}") for m in events if m.content in event_out
-    )
+    used_profile = sum(tok.count(f"- {m.content}") for m in semantic if m.content in profile_out)
+    used_episodic = sum(tok.count(f"- {m.content}") for m in events if m.content in event_out)
     system_tokens = tok.count(system_text)
     usage = UsageInfo(
         budget=budget,

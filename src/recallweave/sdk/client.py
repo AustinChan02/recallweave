@@ -69,8 +69,9 @@ class RecallWeaveClient:
     def search(self, query: str, k: int = 5) -> dict:
         return self._request("POST", "/v1/memories:search", {"query": query, "k": k})
 
-    def compile(self, messages: list[dict], budget_tokens: int | None = None,
-                session_id: str | None = None) -> dict:
+    def compile(
+        self, messages: list[dict], budget_tokens: int | None = None, session_id: str | None = None
+    ) -> dict:
         body: dict[str, Any] = {"messages": messages}
         if budget_tokens is not None:
             body["budget_tokens"] = budget_tokens

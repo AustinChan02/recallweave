@@ -70,8 +70,12 @@ class TestSignedDecayAndWeights:
 
     def test_final_score_linear_parts(self):
         s = final_score(
-            0.5, kind_weight=1.2, recency=1.0,
-            importance=1.0, importance_lo=0.7, importance_span=0.6,
+            0.5,
+            kind_weight=1.2,
+            recency=1.0,
+            importance=1.0,
+            importance_lo=0.7,
+            importance_span=0.6,
         )
         assert math.isclose(s, 0.5 * 1.2 * 1.3)
 
@@ -81,9 +85,12 @@ class TestSignedDecayAndWeights:
             "old_fact": _mem(kind="fact", importance=0.2, age_days=60),
         }
         out = weighted_rank(
-            {"new_pref": 0.01, "old_fact": 0.01}, rows,
+            {"new_pref": 0.01, "old_fact": 0.01},
+            rows,
             kind_weight_fn=lambda k: 1.1 if k == "preference" else 1.0,
-            tau_days=21.0, importance_lo=0.7, importance_span=0.6,
+            tau_days=21.0,
+            importance_lo=0.7,
+            importance_span=0.6,
         )
         ids = [mid for mid, _ in out]
         assert ids[0] == "new_pref"
@@ -95,8 +102,12 @@ class TestSignedDecayAndWeights:
         m.created_at = datetime.now(UTC)
         rows = {"m": m}
         out = weighted_rank(
-            {"m": 1.0}, rows, kind_weight_fn=lambda k: 1.0,
-            tau_days=21.0, importance_lo=0.7, importance_span=0.6,
+            {"m": 1.0},
+            rows,
+            kind_weight_fn=lambda k: 1.0,
+            tau_days=21.0,
+            importance_lo=0.7,
+            importance_span=0.6,
         )
         val = out[0][1]
         expected = 1.0 * 1.0 * math.exp(-50.0 / 21.0) * 1.0
@@ -107,7 +118,7 @@ class TestMMR:
     def test_dissimilar_first_redundant_surpressed(self):
         emb = {
             "target": [1.0, 0.0],
-            "dup": [0.99, -0.14],   # very similar to target in behavior below
+            "dup": [0.99, -0.14],  # very similar to target in behavior below
             "diverse": [0.0, 1.0],
             "dup2": [1.0, 0.0],
         }

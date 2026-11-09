@@ -18,9 +18,7 @@ DEV_USER_UUID = "11111111-1111-1111-1111-111111111111"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="RECALLWEAVE_", env_file=".env", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_prefix="RECALLWEAVE_", env_file=".env", extra="ignore")
 
     app_env: Literal["dev", "test", "prod"] = "dev"
     db_url: str = "sqlite+aiosqlite:///./data/recallweave.db"
@@ -90,9 +88,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _check_window(self) -> Settings:
         if not (0 < self.conflict_lo < self.dedup_near <= 1.0):
-            raise ValueError(
-                f"conflict_lo({self.conflict_lo}) must be < dedup_near({self.dedup_near})"
-            )
+            raise ValueError(f"conflict_lo({self.conflict_lo}) must be < dedup_near({self.dedup_near})")
         total = (
             self.budget_system_pct
             + self.budget_profile_pct

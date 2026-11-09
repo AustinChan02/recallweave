@@ -35,13 +35,13 @@ def _neighbor(sim: float):
 class TestRouteCandidate:
     def test_table(self):
         cases = [
-            (None, "add"),          # no neighbors -> direct ADD
-            (0.5, "add"),           # below conflict window
+            (None, "add"),  # no neighbors -> direct ADD
+            (0.5, "add"),  # below conflict window
             (_LO - 0.01, "add"),
-            (_LO + 0.001, "llm"),   # inside window -> LLM decides
+            (_LO + 0.001, "llm"),  # inside window -> LLM decides
             (0.86, "llm"),
             (_NEAR - 0.001, "llm"),
-            (_NEAR, "near_dup"),    # boundary: >= 0.93 -> skip
+            (_NEAR, "near_dup"),  # boundary: >= 0.93 -> skip
             (0.99, "near_dup"),
         ]
         for sim, expected in cases:
@@ -89,16 +89,20 @@ class TestExtractSchemaStrict:
     def test_batch_caps_count(self):
         with pytest.raises(ValidationError):
             ExtractedBatch.model_validate(
-                {"memories": [{"kind": "fact", "content": f"m{i}"}
-                              for i in range(17)]}
+                {"memories": [{"kind": "fact", "content": f"m{i}"} for i in range(17)]}
             )
 
 
 def _run_ingest(svc, user_id, messages: list[dict]):
     return ingest(
-        user_id=user_id, session_id=None, messages=messages,
-        llm=svc.llm, embedder=svc.embedder, repo=svc.repo,
-        vector=svc.vector, settings=svc.settings,
+        user_id=user_id,
+        session_id=None,
+        messages=messages,
+        llm=svc.llm,
+        embedder=svc.embedder,
+        repo=svc.repo,
+        vector=svc.vector,
+        settings=svc.settings,
     )
 
 
@@ -119,10 +123,14 @@ class TestIngest:
     async def test_two_facts_added(self, tmp_path, user_id):
         svc, llm, _s = make_service(tmp_path)
         await svc.bootstrap()
-        llm.push({"memories": [
-            {"kind": "fact", "content": "用户居住在北京海淀区", "importance": 0.7},
-            {"kind": "fact", "content": "用户养了一只橘猫", "importance": 0.5},
-        ]})
+        llm.push(
+            {
+                "memories": [
+                    {"kind": "fact", "content": "用户居住在北京海淀区", "importance": 0.7},
+                    {"kind": "fact", "content": "用户养了一只橘猫", "importance": 0.5},
+                ]
+            }
+        )
         report = await _run_ingest(svc, user_id, [{"role": "user", "content": "我住海淀，有只橘猫。"}])
         assert report.extracted == 2
         assert [d.op for d in report.decisions] == ["ADD", "ADD"]
@@ -134,10 +142,14 @@ class TestIngest:
     async def test_in_batch_duplicates_collapse(self, tmp_path, user_id):
         svc, llm, _s = make_service(tmp_path)
         await svc.bootstrap()
-        llm.push({"memories": [
-            {"kind": "fact", "content": "用户不吃香菜", "importance": 0.5},
-            {"kind": "fact", "content": "用户不吃香菜", "importance": 0.5},
-        ]})
+        llm.push(
+            {
+                "memories": [
+                    {"kind": "fact", "content": "用户不吃香菜", "importance": 0.5},
+                    {"kind": "fact", "content": "用户不吃香菜", "importance": 0.5},
+                ]
+            }
+        )
         report = await _run_ingest(svc, user_id, [{"role": "user", "content": "我不吃香菜。"}])
         assert report.extracted == 2
         assert len(report.decisions) == 1
@@ -178,9 +190,15 @@ class TestIngest:
         old = next(m for m in await svc.repo.active_candidates(user_id, 10) if "咖啡" in m.content)
 
         llm.push({"memories": [{"kind": "fact", "content": "用户胃病后不喝咖啡，喝红茶", "importance": 0.6}]})
-        llm.push({"op": "UPDATE", "target_memory_id": str(old.id),
-                  "content": "用户有胃病，不喝咖啡，改喝红茶", "confidence": 0.85,
-                  "rationale": "health change supersedes old habit"})
+        llm.push(
+            {
+                "op": "UPDATE",
+                "target_memory_id": str(old.id),
+                "content": "用户有胃病，不喝咖啡，改喝红茶",
+                "confidence": 0.85,
+                "rationale": "health change supersedes old habit",
+            }
+        )
         report = await _run_ingest(svc, user_id, [{"role": "user", "content": "胃病后戒了咖啡。"}])
         assert [d.op for d in report.decisions] == ["UPDATE"]
         old_after = await svc.repo.get_any_status(user_id, old.id)
@@ -203,8 +221,14 @@ class TestIngest:
         old = (await svc.repo.active_candidates(user_id, 10))[0]
 
         llm.push({"memories": [{"kind": "fact", "content": "用户已从加州搬离", "importance": 0.4}]})
-        llm.push({"op": "DELETE", "target_memory_id": str(old.id),
-                  "confidence": 0.8, "rationale": "stale residency"})
+        llm.push(
+            {
+                "op": "DELETE",
+                "target_memory_id": str(old.id),
+                "confidence": 0.8,
+                "rationale": "stale residency",
+            }
+        )
         await _run_ingest(svc, user_id, [{"role": "user", "content": "我搬离加州了。"}])
         after = await svc.repo.get_any_status(user_id, old.id)
         assert after.status == "superseded"
@@ -219,8 +243,14 @@ class TestIngest:
         await _run_ingest(svc, user_id, [{"role": "user", "content": "我用 Vim。"}])
         llm.push({"memories": [{"kind": "fact", "content": "用户经常使用 Vim 做事", "importance": 0.3}]})
         # invalid (not-in-window) target -> coerce_decision must turn it into NOOP
-        llm.push({"op": "DELETE", "target_memory_id": str(uuid.uuid4()),
-                  "confidence": 0.9, "rationale": "wants to delete"})
+        llm.push(
+            {
+                "op": "DELETE",
+                "target_memory_id": str(uuid.uuid4()),
+                "confidence": 0.9,
+                "rationale": "wants to delete",
+            }
+        )
         report = await _run_ingest(svc, user_id, [{"role": "user", "content": "我常用 Vim。"}])
         noop_skips = [s for s in report.skipped if s.reason.startswith("noop:")]
         assert noop_skips and "coerced" in noop_skips[0].reason
@@ -232,10 +262,14 @@ class TestIngest:
         await svc.bootstrap()
         llm.push({"memories": [{"kind": "fact", "content": "用户住北京", "importance": 0.4}]})
         await _run_ingest(svc, user_id, [{"role": "user", "content": "住北京。"}])
-        llm.push({"memories": [
-            {"kind": "fact", "content": "用户住北京海淀区", "importance": 0.4},
-            {"kind": "fact", "content": "用户养了三只猫", "importance": 0.4},
-        ]})
+        llm.push(
+            {
+                "memories": [
+                    {"kind": "fact", "content": "用户住北京海淀区", "importance": 0.4},
+                    {"kind": "fact", "content": "用户养了三只猫", "importance": 0.4},
+                ]
+            }
+        )
         llm.push(ProviderError("resolver down"))
         report = await _run_ingest(svc, user_id, [{"role": "user", "content": "海淀。猫。"}])
         reasons = [s.reason for s in report.skipped]

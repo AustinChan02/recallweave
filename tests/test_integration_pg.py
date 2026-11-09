@@ -71,5 +71,5 @@ async def test_pg_vector_search_and_supersede(pg_engine):
         async with session.begin():
             fresh = await session.get(Memory, m1.id)
             await MemoryRepo.mark_superseded(session, fresh, new_id=m2.id, reason="test")
-    gone = (await vector.search(user_id=user, query_embedding=q, k=5))
+    gone = await vector.search(user_id=user, query_embedding=q, k=5)
     assert m1.id not in [h[0] for h in gone]

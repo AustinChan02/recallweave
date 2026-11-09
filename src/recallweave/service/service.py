@@ -48,9 +48,7 @@ class RecallWeaveService:
         self.db = Database(engine)
         self.llm = llm if llm is not None else make_llm_adapter(settings)
         self.embedder = embedder if embedder is not None else make_embedder(settings)
-        self.vector = VectorIndex(
-            engine, settings.embedding_dim, hnsw_ef_search=settings.hnsw_ef_search
-        )
+        self.vector = VectorIndex(engine, settings.embedding_dim, hnsw_ef_search=settings.hnsw_ef_search)
         self.repo = MemoryRepo(engine)
 
     @property

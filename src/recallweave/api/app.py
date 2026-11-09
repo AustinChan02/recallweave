@@ -41,9 +41,7 @@ async def _on_validation_error(_request: Request, exc: RequestValidationError) -
 async def _on_unexpected(_request: Request, exc: Exception) -> JSONResponse:
     # Fail-closed posture: unexpected errors are logged with stack, client sees a
     # generic body (no internals leak).
-    logging.getLogger("recallweave").exception(
-        "unhandled_error", extra={"kind": type(exc).__name__}
-    )
+    logging.getLogger("recallweave").exception("unhandled_error", extra={"kind": type(exc).__name__})
     return _error_response(
         500,
         {"code": "internal_error", "message": "internal error", "detail": {}},

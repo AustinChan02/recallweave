@@ -136,9 +136,7 @@ async def ingest(
     for cand in candidates:
         key = " ".join(cand.content.lower().split())
         if key in seen:
-            report.skipped.append(
-                SkippedRecord(content=cand.content[:140], reason="in_batch_duplicate")
-            )
+            report.skipped.append(SkippedRecord(content=cand.content[:140], reason="in_batch_duplicate"))
             continue
         seen.add(key)
         batch.append(cand)
@@ -149,9 +147,7 @@ async def ingest(
     async with repo.new_session() as session:
         async with session.begin():
             for cand, emb in zip(batch, embeddings, strict=True):
-                sims = await vector.search(
-                    user_id=user_id, query_embedding=emb, k=settings.neighbor_top_n
-                )
+                sims = await vector.search(user_id=user_id, query_embedding=emb, k=settings.neighbor_top_n)
                 neighbor_rows = await repo.by_ids(user_id, [mid for mid, _ in sims])
                 neighbors = [
                     Neighbor(memory=neighbor_rows[mid], similarity=sim)

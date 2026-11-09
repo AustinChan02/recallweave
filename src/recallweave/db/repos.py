@@ -109,9 +109,7 @@ class MemoryRepo:
         if not ids:
             return {}
         async with self._maker() as session:
-            res = await session.execute(
-                select(Memory).where(Memory.user_id == user_id, Memory.id.in_(ids))
-            )
+            res = await session.execute(select(Memory).where(Memory.user_id == user_id, Memory.id.in_(ids)))
             return {m.id: m for m in res.scalars().all()}
 
     async def active_candidates(

@@ -52,18 +52,14 @@ def _next_run_number(results_dir: Path, date: str, condition: str) -> int:
 
 def _write_once(path: Path, payload: dict) -> None:
     if path.exists():
-        raise SystemExit(
-            f"WRITE-ONCE VIOLATION: refusing to overwrite existing result {path}"
-        )
+        raise SystemExit(f"WRITE-ONCE VIOLATION: refusing to overwrite existing result {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def _write_once_text(path: Path, text: str) -> None:
     if path.exists():
-        raise SystemExit(
-            f"WRITE-ONCE VIOLATION: refusing to overwrite existing result {path}"
-        )
+        raise SystemExit(f"WRITE-ONCE VIOLATION: refusing to overwrite existing result {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
 
@@ -109,7 +105,9 @@ def main() -> None:
     ap.add_argument("--judge", default="mock", choices=["mock"])
     ap.add_argument("--budget", type=int, default=600)
     ap.add_argument(
-        "--results-dir", type=Path, default=from_env().eval_results_dir,
+        "--results-dir",
+        type=Path,
+        default=from_env().eval_results_dir,
         help="default: settings.eval_results_dir (evals/results)",
     )
     args = ap.parse_args()
@@ -172,21 +170,23 @@ def main() -> None:
 
     # derived summary (also write-once): consumed by humans, raw files stay raw
     summary_rows = [
-        run.metrics() | {"condition": cond}
-        for cond, (run, _p) in zip(conditions_list, results, strict=True)
+        run.metrics() | {"condition": cond} for cond, (run, _p) in zip(conditions_list, results, strict=True)
     ]
     summary_path = args.results_dir / f"summary-{date}-{run_id}.md"
-    _write_once_text(summary_path, _summary_markdown(
-        {
-            "run_id": run_id,
-            "date": date,
-            "dataset": str(args.dataset),
-            "protocol": "context-evidence-recall (offline proxy)",
-            "judge_label": judge.judge_label,
-            "budget_tokens": args.budget,
-        },
-        summary_rows,
-    ))
+    _write_once_text(
+        summary_path,
+        _summary_markdown(
+            {
+                "run_id": run_id,
+                "date": date,
+                "dataset": str(args.dataset),
+                "protocol": "context-evidence-recall (offline proxy)",
+                "judge_label": judge.judge_label,
+                "budget_tokens": args.budget,
+            },
+            summary_rows,
+        ),
+    )
     print(summary_path.read_text(encoding="utf-8"))
     for _cond, (_run, path) in zip(conditions_list, results, strict=True):
         print(f"result file: {path}")

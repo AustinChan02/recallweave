@@ -51,9 +51,7 @@ def _load_pg_migration() -> list[str]:
     raw = path.read_text(encoding="utf-8")
     stmts: list[str] = []
     for chunk in raw.split(";"):
-        stripped = "\n".join(
-            ln for ln in chunk.splitlines() if not ln.strip().startswith("--")
-        ).strip()
+        stripped = "\n".join(ln for ln in chunk.splitlines() if not ln.strip().startswith("--")).strip()
         if stripped:
             stmts.append(stripped)
     return stmts

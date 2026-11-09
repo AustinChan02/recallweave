@@ -35,11 +35,15 @@ QUESTION = "用户怎么安排睡眠？"
 
 
 def _service(tmp: Path) -> RecallWeaveService:
-    db_url = f"sqlite+aiosqlite:///{tmp/'ab.sqlite'}"
+    db_url = f"sqlite+aiosqlite:///{tmp / 'ab.sqlite'}"
     prep_sqlite_path(db_url)
     settings = make_settings(
-        app_env="test", db_url=db_url, llm_provider="mock",
-        embedding_provider="hash", embedding_dim=64, env_file="",
+        app_env="test",
+        db_url=db_url,
+        llm_provider="mock",
+        embedding_provider="hash",
+        embedding_dim=64,
+        env_file="",
         decay_tau_days=21.0,
     )
     return RecallWeaveService(settings, make_engine(db_url), llm=MockLLMAdapter([]))
@@ -49,7 +53,8 @@ async def _seed(svc, uid) -> None:
     from recallweave.db.models import Memory
 
     contents = [
-        c for c in [
+        c
+        for c in [
             "用户坚持每晚 23 点睡觉，7 点起床",
             "用户周末睡懒觉到中午",
             "用户睡前不喝咖啡",
@@ -80,9 +85,7 @@ def _v1_reorder(compiled, round_no: int) -> str:
     if items:
         rot = round_no % len(items)
         drifted = items[rot:] + items[:rot]
-        return "\n".join(
-            lines[: profile_start + 1] + [f"- {t}" for t in drifted] + lines[profile_end:]
-        )
+        return "\n".join(lines[: profile_start + 1] + [f"- {t}" for t in drifted] + lines[profile_end:])
     return sys_text
 
 
@@ -116,7 +119,8 @@ async def main_async() -> dict:
         "v2_content_addressed": {"unique_prefixes": len(set(v2_hashes)), "stable": v2_stable},
         "v1_score_drift": {"unique_prefixes": len(set(v1_hashes)), "drifted": v1_drifted},
         "provider": {
-            "embedding": "hash", "db": "sqlite",
+            "embedding": "hash",
+            "db": "sqlite",
             "labels": ["local-compiler"],
         },
         "uncomputed": {
@@ -144,9 +148,7 @@ def main() -> None:
     ap.add_argument("--write", action="store_true")
     args = ap.parse_args()
     if args.write:
-        path = write_once_json(
-            Path(__file__).resolve().parent / "results", "cache-ab", report
-        )
+        path = write_once_json(Path(__file__).resolve().parent / "results", "cache-ab", report)
         print(f"written: {path}")
 
 

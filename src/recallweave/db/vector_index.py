@@ -41,10 +41,9 @@ _PG_SEARCH = text(
     """
 )
 
-_SQLITE_FETCH_EMB = (
-    text("SELECT memory_id, embedding_json FROM memory_embeddings WHERE memory_id IN :ids")
-    .bindparams(bindparam("ids", expanding=True))
-)
+_SQLITE_FETCH_EMB = text(
+    "SELECT memory_id, embedding_json FROM memory_embeddings WHERE memory_id IN :ids"
+).bindparams(bindparam("ids", expanding=True))
 
 
 def _vector_literal(vec: list[float]) -> str:
@@ -71,8 +70,7 @@ class VectorIndex:
         else:
             await session.execute(
                 text(
-                    "INSERT OR REPLACE INTO memory_embeddings(memory_id, embedding_json) "
-                    "VALUES (:mid, :ev)"
+                    "INSERT OR REPLACE INTO memory_embeddings(memory_id, embedding_json) VALUES (:mid, :ev)"
                 ),
                 {"mid": str(memory_id), "ev": json.dumps(embedding)},
             )
@@ -108,15 +106,10 @@ class VectorIndex:
                     )
                 )
             ).all()
-            ids = [
-                (r.id if isinstance(r.id, uuid.UUID) else uuid.UUID(str(r.id)))
-                for r in cand_rows
-            ]
+            ids = [(r.id if isinstance(r.id, uuid.UUID) else uuid.UUID(str(r.id))) for r in cand_rows]
             if not ids:
                 return []
-            emb_rows = (
-                await conn.execute(_SQLITE_FETCH_EMB, {"ids": [str(mid) for mid in ids]})
-            ).all()
+            emb_rows = (await conn.execute(_SQLITE_FETCH_EMB, {"ids": [str(mid) for mid in ids]})).all()
         emb_by_mid = {r.memory_id: r.embedding_json for r in emb_rows}
 
         now = datetime.now(UTC)

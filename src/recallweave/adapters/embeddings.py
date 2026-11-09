@@ -92,9 +92,7 @@ class BGEEmbedding:
         self.provider = f"bge:{model_name}"
 
     async def embed_many(self, texts: list[str]) -> list[list[float]]:
-        vecs = self._model.encode(
-            texts, normalize_embeddings=True, show_progress_bar=False
-        ).tolist()
+        vecs = self._model.encode(texts, normalize_embeddings=True, show_progress_bar=False).tolist()
         return [list(map(float, v)) for v in vecs]
 
 

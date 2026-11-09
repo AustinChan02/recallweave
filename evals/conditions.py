@@ -79,9 +79,7 @@ async def _build_item_service(root: Path, item: dict) -> RecallWeaveService:
     return svc
 
 
-async def run_condition(
-    condition: str, item: dict, item_root: Path, budget: int
-) -> dict:
+async def run_condition(condition: str, item: dict, item_root: Path, budget: int) -> dict:
     """Run ONE (condition, item) pair; returns {context_messages, provider, meta}."""
     user_id = uuid.uuid4()
     turns = [t for t in item.get("turns", []) if t.get("role") and t.get("content")]
@@ -103,10 +101,7 @@ async def run_condition(
 
         if condition == "C1":
             rows = await svc.repo.active_candidates(user_id, 2000)
-            system = "\n".join(
-                ["ALL MEMORIES (C1 full-dump):"]
-                + [f"- {m.content}" for m in rows]
-            )
+            system = "\n".join(["ALL MEMORIES (C1 full-dump):"] + [f"- {m.content}" for m in rows])
             context = [
                 {"role": "system", "content": system},
                 *[{"role": m["role"], "content": m["content"]} for m in turns],
@@ -181,9 +176,7 @@ class ConditionRun:
             "judged": len(judged),
             "total": len(self.records),
             "unjudged": len(unjudged),
-            "judged_fraction": (
-                round(len(judged) / len(self.records), 6) if self.records else None
-            ),
+            "judged_fraction": (round(len(judged) / len(self.records), 6) if self.records else None),
             "tokens_total_estimate": sum(r.tokens for r in self.records),
         }
 
@@ -192,9 +185,7 @@ async def run_harness(
     dataset_path: Path, conditions: list[str], judge, *, budget: int, tmp_root: Path
 ) -> list[ConditionRun]:
     items = [
-        json.loads(line)
-        for line in dataset_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
+        json.loads(line) for line in dataset_path.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
     item_root = tmp_root / "items"
     item_root.mkdir(parents=True, exist_ok=True)

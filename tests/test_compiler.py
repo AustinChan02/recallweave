@@ -43,9 +43,12 @@ async def test_profile_hash_order_beats_score_order(tmp_path, user_id):
     svc, _llm, _settings = make_service(tmp_path)
     await svc.bootstrap()
     await _seed(
-        svc, user_id,
-        [{"content": "用户居住在北京", "kind": "fact", "importance": 0.9},
-         {"content": "用户说普通话", "kind": "fact", "importance": 0.9}],
+        svc,
+        user_id,
+        [
+            {"content": "用户居住在北京", "kind": "fact", "importance": 0.9},
+            {"content": "用户说普通话", "kind": "fact", "importance": 0.9},
+        ],
     )
     out = await svc.compile(user_id, None, messages=[{"role": "user", "content": "普通话"}])
     texts = [m["content"] for m in out.context_messages if m["role"] == "system"]
@@ -101,8 +104,11 @@ async def test_working_tail_is_untouched_and_last(tmp_path, user_id):
 @pytest.mark.asyncio
 async def test_working_tail_trimmed_to_its_share(tmp_path, user_id):
     svc, _llm, _settings = make_service(
-        tmp_path, budget_working_pct=0.1, budget_profile_pct=0.3,
-        budget_episodic_pct=0.5, context_budget_default=100,
+        tmp_path,
+        budget_working_pct=0.1,
+        budget_profile_pct=0.3,
+        budget_episodic_pct=0.5,
+        context_budget_default=100,
     )
     await svc.bootstrap()
     msgs = [{"role": "user", "content": f"turn #{i} padding " + "x" * 40} for i in range(20)]
@@ -115,8 +121,12 @@ async def test_working_tail_trimmed_to_its_share(tmp_path, user_id):
 @pytest.mark.asyncio
 async def test_budget_slots_exhausted_trace_reason(tmp_path, user_id):
     svc, _llm, settings = make_service(
-        tmp_path, context_budget_default=120, budget_system_pct=0.10,
-        budget_profile_pct=0.02, budget_episodic_pct=0.48, budget_working_pct=0.40,
+        tmp_path,
+        context_budget_default=120,
+        budget_system_pct=0.10,
+        budget_profile_pct=0.02,
+        budget_episodic_pct=0.48,
+        budget_working_pct=0.40,
     )
     await svc.bootstrap()
     long_fact = "用户的职业是网络安全工程师，工作时间很长，很晚睡觉。" * 6
@@ -134,7 +144,8 @@ async def test_trace_fields_match_proposal(tmp_path, user_id):
     svc, _llm, _settings = make_service(tmp_path)
     await svc.bootstrap()
     await _seed(
-        svc, user_id,
+        svc,
+        user_id,
         [{"content": "用户居住在北京", "kind": "fact", "span": {"message_index": 4}}],
     )
     out = await svc.compile(user_id, None, messages=[{"role": "user", "content": "哪个城市？"}])
@@ -157,11 +168,22 @@ async def test_events_newest_first_and_episodic_slot(tmp_path, user_id):
     svc, _llm, _settings = make_service(tmp_path)
     await svc.bootstrap()
     now = datetime.now(UTC)
-    m_old = Memory(user_id=user_id, kind="event", content="用户上周去了大连",
-                   importance=0.5, status="active",
-                   created_at=now - timedelta(days=5))
-    m_new = Memory(user_id=user_id, kind="event", content="用户昨天参观了故宫",
-                   importance=0.5, status="active", created_at=now - timedelta(days=1))
+    m_old = Memory(
+        user_id=user_id,
+        kind="event",
+        content="用户上周去了大连",
+        importance=0.5,
+        status="active",
+        created_at=now - timedelta(days=5),
+    )
+    m_new = Memory(
+        user_id=user_id,
+        kind="event",
+        content="用户昨天参观了故宫",
+        importance=0.5,
+        status="active",
+        created_at=now - timedelta(days=1),
+    )
     async with svc.repo.new_session() as session:
         async with session.begin():
             for m in (m_old, m_new):
@@ -203,5 +225,9 @@ def test_build_system_block_shapes():
         "P", ["x"], ["y"]
     )
     assert [slot for slot, _text in parts] == [
-        "persona", "headers", "profile", "headers", "episodic",
+        "persona",
+        "headers",
+        "profile",
+        "headers",
+        "episodic",
     ]

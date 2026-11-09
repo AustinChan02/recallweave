@@ -108,10 +108,7 @@ def mmr_select(
             if selected:
                 emb = embeddings.get(mid)
                 sims = [
-                    _dot(emb, embeddings.get(s, []))
-                    if emb and embeddings.get(s)
-                    else 0.0
-                    for s in selected
+                    _dot(emb, embeddings.get(s, [])) if emb and embeddings.get(s) else 0.0 for s in selected
                 ]
                 div = max(sims) if sims else 0.0
             val = lam * rel[mid] - (1.0 - lam) * div

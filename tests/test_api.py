@@ -39,9 +39,7 @@ class TestAuth:
 
     def test_unknown_token_is_401(self, client_and_service):
         client, _svc = client_and_service
-        resp = client.get(
-            "/v1/stats", headers={"Authorization": "Bearer nope"}
-        )
+        resp = client.get("/v1/stats", headers={"Authorization": "Bearer nope"})
         assert resp.status_code == 401
 
     def test_search_requires_auth(self, client_and_service):
@@ -65,11 +63,7 @@ class TestHappyPath:
         resp = client.post(
             "/v1/memories:extract",
             headers=HEADERS,
-            json={
-                "messages": [
-                    {"role": "user", "content": "用户住在上海浦东，喜欢骑车通勤。"}
-                ]
-            },
+            json={"messages": [{"role": "user", "content": "用户住在上海浦东，喜欢骑车通勤。"}]},
         )
         assert resp.status_code == 200, resp.text
         # NOTE: this call FAILS closed when the mock queue is empty -> 200 report
@@ -105,9 +99,7 @@ class TestHappyPath:
 
     def test_validation_error_shape(self, client_and_service):
         client, _svc = client_and_service
-        resp = client.post(
-            "/v1/memories:search", headers=HEADERS, json={"query": ""}
-        )
+        resp = client.post("/v1/memories:search", headers=HEADERS, json={"query": ""})
         assert resp.status_code == 422
         assert resp.json()["code"] == "invalid_request"
 

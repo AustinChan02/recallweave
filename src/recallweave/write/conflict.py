@@ -83,14 +83,11 @@ def coerce_decision(raw: Decision, neighbors: list[Neighbor]) -> Decision:
     return raw
 
 
-async def resolve_with_llm(
-    llm: LLMAdapter, candidate: Extracted, neighbors: list[Neighbor]
-) -> Decision:
+async def resolve_with_llm(llm: LLMAdapter, candidate: Extracted, neighbors: list[Neighbor]) -> Decision:
     if not neighbors:
         return Decision(op="ADD", rationale="no neighbors in window", confidence=1.0)
     neighbor_lines = "\n".join(
-        f'- id={n.memory.id} sim={n.similarity:.3f} kind={n.memory.kind} '
-        f'content="{n.memory.content}"'
+        f'- id={n.memory.id} sim={n.similarity:.3f} kind={n.memory.kind} content="{n.memory.content}"'
         for n in neighbors
     )
     candidate_obj = {

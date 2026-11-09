@@ -51,7 +51,7 @@ def _print(title: str, obj) -> None:
 
 async def main() -> int:
     tmp = Path(tempfile.mkdtemp(prefix="rw-demo-"))
-    db_url = f"sqlite+aiosqlite:///{tmp/'demo.sqlite'}"
+    db_url = f"sqlite+aiosqlite:///{tmp / 'demo.sqlite'}"
     prep_sqlite_path(db_url)
     settings = make_settings(
         app_env="dev",
@@ -65,16 +65,24 @@ async def main() -> int:
     llm = MockLLMAdapter([])  # FIFO: each scripted return is declared up front
     # Turn-1 extraction script (1 candidate -> ADD, no neighbors)
     llm.push(
-        {"memories": [
-            {"kind": "fact", "content": "用户对花生过敏，吃了花生会起疹子", "importance": 0.9,
-             "span": {"message_index": 0}},
-        ]}
+        {
+            "memories": [
+                {
+                    "kind": "fact",
+                    "content": "用户对花生过敏，吃了花生会起疹子",
+                    "importance": 0.9,
+                    "span": {"message_index": 0},
+                },
+            ]
+        }
     )
     # Turn-2 extraction script (1 event -> ADD)
     llm.push(
-        {"memories": [
-            {"kind": "event", "content": "用户上个月去大连出差三天，去了星海广场", "importance": 0.5},
-        ]}
+        {
+            "memories": [
+                {"kind": "event", "content": "用户上个月去大连出差三天，去了星海广场", "importance": 0.5},
+            ]
+        }
     )
     # Turn-3 candidate "花生酱也会起疹子" lands in the (0.80, 0.93) window of the
     # turn-1 fact (hash-cosine ≈ 0.885) — the pipeline routes it to the resolver;
@@ -96,14 +104,26 @@ async def main() -> int:
                 None,
             )
             assert allergy_id, "turn-1 allergy memory not found"
-            llm.push({"memories": [
-                {"kind": "fact", "content": "用户对花生过敏，吃了花生酱也会起疹子", "importance": 0.85},
-            ]})
-            llm.push({
-                "op": "UPDATE", "target_memory_id": allergy_id,
-                "content": "用户对花生过敏，吃花生或花生酱都会起疹子",
-                "confidence": 0.9, "rationale": "同一事实的扩展表述，合并避免重复",
-            })
+            llm.push(
+                {
+                    "memories": [
+                        {
+                            "kind": "fact",
+                            "content": "用户对花生过敏，吃了花生酱也会起疹子",
+                            "importance": 0.85,
+                        },
+                    ]
+                }
+            )
+            llm.push(
+                {
+                    "op": "UPDATE",
+                    "target_memory_id": allergy_id,
+                    "content": "用户对花生过敏，吃花生或花生酱都会起疹子",
+                    "confidence": 0.9,
+                    "rationale": "同一事实的扩展表述，合并避免重复",
+                }
+            )
         report = (await svc.ingest(user, None, turn)).model_dump()
         report["provider_note"] = "mock（脚本化产出，禁止作为实测引用）"
         reports.append(report)
@@ -126,8 +146,10 @@ async def main() -> int:
     _print("compile output", compiled)
 
     _print("stats", await svc.stats(user))
-    print("\n--- honesty footer: provider=mock for all LLM outputs above; "
-          "compile/search are local algorithms. Do not quote mock numbers as measured. ---")
+    print(
+        "\n--- honesty footer: provider=mock for all LLM outputs above; "
+        "compile/search are local algorithms. Do not quote mock numbers as measured. ---"
+    )
     await svc.aclose()
     return 0
 

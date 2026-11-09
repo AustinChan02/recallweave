@@ -23,7 +23,7 @@ DEV_KEY = "dev-key-1"
 
 
 def make_tmp_settings(tmp_path: Path, **overrides):
-    db_url = overrides.pop("db_url", None) or f"sqlite+aiosqlite:///{tmp_path/'rw.sqlite'}"
+    db_url = overrides.pop("db_url", None) or f"sqlite+aiosqlite:///{tmp_path / 'rw.sqlite'}"
     prep_sqlite_path(db_url)
     defaults = dict(
         app_env="test",
