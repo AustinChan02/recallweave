@@ -180,6 +180,32 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
   dev-user（种到随机 uid）——证据先行，不猜。
 - 基线 **110 passed / 1 skipped**。
 
+### P2 工程化收口（mypy 清零 + typecheck 目标 + CI）【✅ 2026-11-10，commit 00612f6】
+- mypy `--ignore-missing-imports`：**14 errors in 8 files → 0**，全部真修不压制
+  （未新增任何 `type: ignore`；`src/` 里仅存的 1 处是 tokens.py 的 tiktoken
+  import 历史注记）。要点：`config.from_env` 改为正规的模块级
+  `_CACHED: Settings | None`（替换 try/except NameError 技巧）；`fusion`
+  MMR 循环 `best: str | None` + 理论不可达守卫；`Database.session()` 声明
+  返回实为 `AsyncSession`（工厂调用非生成器），无用 `AsyncIterator` import
+  删除；`bump_turns` 的 truthy 伪方言分支改为显式 pg/sqlite 两支（方言 dml
+  类型无公共 base，单处注释化 `Any`）；`_send_once` 声明返回 `str` 而实现
+  返回 (content, usage) → 修正为 `tuple[str, dict]`（类型说谎）；reflect
+  在写入门处 `cast(Kind, …)`（DB 列是 str，存量写入时已校验）、resolutions
+  正型 `list[tuple[list[int], Decision]]`；service 摘要标签复用 pipeline 的
+  `_provider_label`（LLMAdapter 协议本无 provider_label 属性）；app 异常
+  handler 改 Starlette 契约 `(Request, Exception)` + isinstance 窄化，
+  违反配对即显式 re-raise。
+- Makefile：新增 `typecheck` 目标（`.PHONY` 同步）；lint 的 format 行补上
+  `scripts/` 与 `sdk_demo.py`（P2 step 1），`sdk_demo.py` 重排版后
+  **65 files** 全绿。
+- CI：`.github/workflows/ci.yml` 双 job——suite（ruff → mypy → pytest
+  sqlite → 离线 eval-smoke，`--results-dir /tmp/eval-ci` 隔离仓内
+  write-once 目录）+ pg-integration（`pgvector/pgvector:pg16` 容器 +
+  `RECALLWEAVE_TEST_PG_URL` 注入；sqlite 套件无 env 保持 skip 语义）。
+  全离线、无 key、无伪造数字。
+- 基线（P2 收口后）：**110 passed / 1 skipped**；`make lint` +
+  `make typecheck` 全绿；mypy **0 errors in 32 files**。
+
 ## 修正登记（对 proposal 的回写）
 见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006
 （ADR-006 已含 2026-11-09 在线化修订段）。
@@ -193,4 +219,4 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 - [x] P1.b：遗忘=分层存储 archive_stale/restore + `make forget` + stats 可见（103 passed）。
 - [x] P1.c：`/v1/reflect` 真实现——聚簇→conflict 管道→单事务应用，501 stub 退役（110 passed）。
 - [x] pg 集成测试真跑过一轮（2026-11-09，Docker 起 pgvector，1 passed，修两 bug）。
-- [ ] mypy strict 与 CI（`make typecheck` + `.github/workflows/ci.yml`）。
+- [x] mypy strict 与 CI（`make typecheck` + `.github/workflows/ci.yml`，2026-11-10）。

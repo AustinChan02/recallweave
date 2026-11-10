@@ -65,11 +65,11 @@
 
 ---
 
-## Track P2 · 工程化（半天量级）
-1. `Makefile` lint 纳入 `scripts/ sdk_demo.py`（我们手工跑过，但 MAKE 目标没含——补上）。
-2. mypy：`make typecheck`；第一步 `mypy src/recallweave --ignore-missing-imports`，公共接口 strict 渐进（proposal §6 允许视时间定 strict）。
-3. CI：`.github/workflows/ci.yml`：ruff → mypy → pytest(sqlite) → integration（service container: pgvector/pgvector:pg16 + env 注入）→ eval-smoke 用 `--results-dir /tmp/eval-ci`（规避 write-once 与仓内产物冲突）。
-4. GitHub repo：`README.md` 顶部查重提示照办后公开（`make reset` 后 push）。
+## Track P2 · 工程化（半天量级）【✅ 2026-11-10 完成，commit 00612f6】
+1. [x] `Makefile` lint 纳入 `scripts/ sdk_demo.py`：check 行原有，format --check 行已补；`sdk_demo.py` 重排版后 65 files 全绿。
+2. [x] mypy：`make typecheck`（`.PHONY` 已同步）——14 个错误逐一**真修**（config 模块级缓存 / fusion MMR 守卫 / session 返回类型 / repos 显式方言分支替换 truthy 诡计 / llm 返回 tuple 类型 / reflect `cast(Kind,…)` + Decision 正型 / service 复用 `_provider_label` / app handler 契约签名），**未新增任何 type: ignore**；`0 errors in 32 files`。
+3. [x] CI：`.github/workflows/ci.yml` 落地——suite job（ruff → mypy → pytest(sqlite) → 离线 eval-smoke 用 `--results-dir /tmp/eval-ci` 隔离仓内 write-once）+ pg-integration job（`pgvector/pgvector:pg16` service container + `RECALLWEAVE_TEST_PG_URL` 注入）。
+4. [ ] GitHub repo 公开（README 顶部查重提示已就位；`make reset` 后 push——**用户侧** GitHub 动作，代码侧无剩余）。
 
 ---
 
