@@ -1,0 +1,175 @@
+{
+  "schema": "rw-bench-cache-ab-online/1",
+  "generated_at": "2026-11-10T05:42:55.986483+00:00",
+  "rounds": 6,
+  "question": "用户怎么安排睡眠？",
+  "experiment": "same memory set compiled twice per round: v2 = stable content-addressed ordering; v1 = score-drift reorder simulation. Both blocks go to the REAL provider; usage and wall time are recorded per call.",
+  "stability": {
+    "v2_content_addressed": {
+      "unique_prefixes": 1,
+      "stable": true
+    },
+    "v1_score_drift": {
+      "unique_prefixes": 6,
+      "drifted": true
+    }
+  },
+  "usage": {
+    "v2_content_addressed": {
+      "unique_prefixes": 1,
+      "prompt_tokens_total": 852,
+      "cache_hit_tokens_total": 0,
+      "hit_rate_tokens": 0.0,
+      "walls_ms": [
+        2450.7,
+        2439.8,
+        2007.8,
+        3225.0,
+        2337.9,
+        1959.8
+      ],
+      "mean_wall_ms": 2403.5,
+      "cache_field_seen": true,
+      "per_round": [
+        {
+          "round": 0,
+          "prefix_sha1": "4d24a6b2a3b1c412",
+          "wall_ms": 2450.7,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 1,
+          "prefix_sha1": "4d24a6b2a3b1c412",
+          "wall_ms": 2439.8,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 2,
+          "prefix_sha1": "4d24a6b2a3b1c412",
+          "wall_ms": 2007.8,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 3,
+          "prefix_sha1": "4d24a6b2a3b1c412",
+          "wall_ms": 3225.0,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 4,
+          "prefix_sha1": "4d24a6b2a3b1c412",
+          "wall_ms": 2337.9,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 5,
+          "prefix_sha1": "4d24a6b2a3b1c412",
+          "wall_ms": 1959.8,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        }
+      ]
+    },
+    "v1_score_drift": {
+      "unique_prefixes": 6,
+      "prompt_tokens_total": 852,
+      "cache_hit_tokens_total": 0,
+      "hit_rate_tokens": 0.0,
+      "walls_ms": [
+        3452.3,
+        2441.7,
+        3670.9,
+        3539.5,
+        3981.5,
+        3088.1
+      ],
+      "mean_wall_ms": 3362.3,
+      "cache_field_seen": true,
+      "per_round": [
+        {
+          "round": 0,
+          "prefix_sha1": "4d24a6b2a3b1c412",
+          "wall_ms": 3452.3,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 1,
+          "prefix_sha1": "f880daaf1ff613da",
+          "wall_ms": 2441.7,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 2,
+          "prefix_sha1": "7bf99e505b4d1c6f",
+          "wall_ms": 3670.9,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 3,
+          "prefix_sha1": "572b0d23efd2d5b0",
+          "wall_ms": 3539.5,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 4,
+          "prefix_sha1": "082c1191dc10fedb",
+          "wall_ms": 3981.5,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        },
+        {
+          "round": 5,
+          "prefix_sha1": "97d679d9af414736",
+          "wall_ms": 3088.1,
+          "prompt_tokens": 142,
+          "cache_hit_tokens": 0,
+          "hit_field": "prompt_cache_hit_tokens"
+        }
+      ]
+    },
+    "cache_field": "prompt_cache_hit_tokens",
+    "note": "prompt/cache tokens are provider-reported usage facts. A MISSING cache field means the provider did not report one — that half stays unmeasured, never invented."
+  },
+  "provider": {
+    "llm": "openai_compat",
+    "model": "deepseek-flash",
+    "embedding": "hash",
+    "db": "sqlite",
+    "compiler": "local (no LLM in the compile path)",
+    "labels": [
+      "openai_compat:deepseek-flash"
+    ]
+  },
+  "budget_guard": {
+    "max_cost_yuan": 5.0,
+    "spent_yuan_upper_est": 0.05904,
+    "tokens_prompt": 1704,
+    "tokens_completion": 3264,
+    "price_table": "configs/prices.toml (UPPER-BOUND placeholders)"
+  },
+  "uncomputed": {
+    "ttft_ms": null,
+    "cost_yuan": null,
+    "note": "the adapter is non-streaming: wall_ms above is FULL-response latency, not first-token — TTFT needs a streaming client or the provider console; cost_yuan needs the console price check. Never fabricated."
+  }
+}

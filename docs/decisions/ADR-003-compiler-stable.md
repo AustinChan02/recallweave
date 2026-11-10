@@ -29,3 +29,44 @@
 ## 为什么不调 LLM 补写
 三句话：成本（每轮一次 LLM 调用 → 测评的 token 成本单位失去意义）、
 延迟（p95 抖动）、确定性（同一集合必须产出同一字节，LLM 签名不可复现）。
+
+## §7.4 数证补录（2026-11-10）：线上半已跑——稳定性证得，命中差值不可 Claim
+
+`bench/cache_ab.py` 的两半现在都落在 write-once 文件里：
+
+**离线半**（`bench/results/cache-ab-2026-11-09-1.json`）：同一记忆集 6 轮，
+v2（内容寻址）恒 1 种前缀、v1（score 漂移）漂出 6 种——只证"稳定性前提"；
+cache-hit/TTFT 在 mock 下不可测，恒 null（诚实半）。
+
+**线上半**（`bench/results/cache-ab-online-2026-11-10-1.json`，schema
+`rw-bench-cache-ab-online/1`）：同一记忆集、每轮把 v2 与 v1 两个 system
+块**都发给真 provider（deepseek-flash）**，6 轮 × 2 臂 = 12 次调用，每次
+prompt 142 tok。实测（provider 上报 usage，非本地估算）：
+
+| 量 | v2 stable | v1 drift |
+|---|---|---|
+| unique_prefixes | 1（恒稳定） | 6（漂移） |
+| `prompt_cache_hit_tokens` 合计 | **0** | **0** |
+| mean wall（n=6/臂） | 2403.5 ms | 3362.3 ms |
+| prompt tok 合计 | 852 | 852 |
+
+诚实结论分三层：
+
+1. **可 Claim（已证）**：铁律一"集合不变 → 前缀字节全同"在真 provider
+   流量下复证（v2 恒 1 种前缀；v1 漂出 6 种，与离线半一致）。
+2. **不可 Claim（数据不支持）**：**本次实验不存在 cache 命中差值**——
+   12 次调用的 `prompt_cache_hit_tokens` **字段存在且全为 0**。这是
+   "测得 0"，不是"没测"：字段名在 provider 的 usage payload 里真实出现，
+   缺字段才会走"未测"分支。两臂同为 0 → v2/v1 命中差值无从比较，
+   任何"v2 命中省钱"的数字都不成立。
+3. **待定假设（明确标注为假设，不是结论）**：单调用前缀仅 142 tok，
+   可能低于 provider cache 的计费/分块粒度；或 cache 需要
+   流量/时间窗预热；或该字段语义并非"计费折扣命中"。落定途径 =
+   DeepSeek 控制台 cache 日志对拍（用户侧动作，以环境真实状态为准）。
+
+其余不可算项维持 null：`ttft_ms`（adapter 非流式，wall 是**整响应**
+延迟；n=6/臂、单次试验，2403 vs 3362 不作任何显著性/首 token 论断）；
+`cost_yuan` 待控制台核价。护栏：上界 ¥0.05904 / 上限 ¥5。
+
+简历口径：§7.4 目前**只有"前缀稳定性"这一半可引用**；cache 命中差值
+在控制台对拍给出非零证据前，一律不写进简历或 README 表格。

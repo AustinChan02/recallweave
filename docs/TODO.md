@@ -34,12 +34,12 @@
 | 2.3 | `docs/eval-datasets.md`：来源/许可/预处理/已知偏差（对立面：许可不明 → 维持"不可运行"状态，拒绝假装） | 许可段落 + 人工复核流程定义 |
 | 2.4 | 全量抽样跑通：30 题（每 type）× `--judge llm` 完整落盘 | `judged/total` 如实 |
 
-### 阶段 3：正式评测 + 简历回填
-1. 全量 run：数据集题集 × C0/C3（时间富余加 C2），结果 write-once。
-2. §7.4 第二半：DeepSeek 控制台日志对拍 `bench/cache_ab.py --write` 的稳定性结论（cache-hit tokens/TTFT 差值），更新 ADR-003 数证。
-3. 人工复核 30 题 → 不一致率写进 summary 旁文件。
-4. 回填 `agent-proposals/RESUME-READY.md` A§1.4 的 `【实测填入】`：eval accuracy、bench p95、cache 命中差值——**以仓内 write-once 文件为准**。
-5. `docs/devlog.md` 记录当日 run 与成本。
+### 阶段 3：正式评测 + 简历回填【代码侧 ✅ 2026-11-10 完成；复核/核价/回填 = 用户侧】
+1. [x] 全量 run：pin 集 t30 × C0/C3 ×（真空答 + 解耦 judge，30/30×2 落盘 write-once）——run7（LME-t30：C0 0.0167 / C3 0.0，run_id 1ad563d18360）+ run8（LoCoMo-t30：C0 0.25 / C3 0.2，run_id c7d7ddc3f2b2），sha256 与 manifest 复核一致后跑；"时间富余加 C2"未做，如实留空。
+2. [x] §7.4 第二半（代码侧）：`bench/cache_ab.py --provider` 线上半实跑落盘（`cache-ab-online-2026-11-10-1.json`：前缀稳定性真 provider 复证 v2=1/v1=6；**12 调用 `prompt_cache_hit_tokens` 全为 0 → 无命中差值可 claim**，假设已标注）+ ADR-003 数证补录；**控制台日志对拍 = 用户侧**，落定后回填本行。
+3. [ ] 人工复核 30 题：4 份盲评草稿已生成（`evals/results/human-review-*-draft.md`，judge 分隔离文末防锚定，`scripts/make_human_review.py`）；复核本体 + 不一致率旁文件 = **用户侧动作**。
+4. [ ] 回填 `agent-proposals/RESUME-READY.md` A§1.4 的 `【实测填入】`：**用户侧**，以仓内 write-once 文件为准，且须先过步骤 3（一致率 ≥80% 且反转 = 0）。
+5. [x] `docs/devlog.md` 记录当日 run 与成本（DEVLOG「P0 阶段 3」小节；护栏累计上界 ≈¥3.28 / 预算 ¥200）。
 
 ---
 

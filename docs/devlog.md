@@ -206,6 +206,44 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 - 基线（P2 收口后）：**110 passed / 1 skipped**；`make lint` +
   `make typecheck` 全绿；mypy **0 errors in 32 files**。
 
+### P0 阶段 3：正式全量 run（run7/run8）+ §7.4 线上半【✅ 2026-11-10，commits 5eaca3b / 8dcf6d6 → 收批提交】
+- **协议**：`--answer-mode provider --judge llm --judge-model deepseek-v4-pro`——回答
+  = `deepseek-flash`，judge = `deepseek-v4-pro`，"judge 与被测模型解耦"从字面落地
+  （两模型均经 `GET /models` 验证存在）；跑前 sha256 复核（两 t30 转换集 vs
+  `converted-manifest.json` 一致）。
+- **run7（LongMemEval-S t30 × C0,C3；run_id `1ad563d18360`）**：
+
+| 条件 | accuracy | judged | ctx tok（本地估） | ans tok | judge tok | guard 上界 |
+|---|---|---|---|---|---|---|
+| C0 | 0.0167 | 30/30 | ~136599 | 4336 | 13179 | ¥1.1429 |
+| C3 | 0.0 | 30/30 | ~1507 | 3361 | 11847 | （累计同上） |
+
+- **run8（LoCoMo t30 × C0,C3；run_id `c7d7ddc3f2b2`）**：C0 0.25 / C3 0.2，均 30/30
+  judged；per-type（C0｜C3）：adversarial 1.0｜1.0、temporal 0.417｜0.25、
+  open-domain 0.125｜0.125、single-hop 0.062｜0.0、multi-hop 0.0｜0.0；guard ¥0.7451。
+- **诚实归因**（偏差已在 `docs/eval-datasets.md` 披露，不作模型能力结论）：C3 证据
+  上下文均 ~50 tok/题（LME）/ ~108（LoCoMo），vs C0 last-20 窗口 ~4553/~610——
+  600-token 预算 + mock sticky-NOOP 抽取 + hash embedding 下"证据进不了上下文"是
+  结构性结果；adversarial 双 1.0 是基准设计（参考答案 = 会话中不存在，如实拒答即
+  得分）；multi-hop 双 0 与证据缺失一致。**本批数字角色 = 管线机械学证据 + 协议
+  演示；进简历仍须过 30 题人工复核。**
+- **run5/run6 关系澄清**：当时即真答真判（此前我方把 item 级 compile-lane 标签
+  `local-truncate` 误读为顶层 answered_by，已勘误）；但代码头早于 P1.a → 在
+  P1.a/b/c + P2 之后的最终头上重跑 run7/run8 为正式版。文件名按（日期, 条件）重新
+  计数：`eval-2026-11-10-C*-run1/run2.json`（write-once 语义不变，原始文件不编辑）。
+- **§7.4 线上半**（`bench/results/cache-ab-online-2026-11-10-1.json`）：稳定性在真
+  provider 流量下复证（v2 恒 1 前缀 / v1 漂出 6）；usage 半：provider **均上报
+  `prompt_cache_hit_tokens` 且 12 次调用全为 0**——"测得 0"不是"没测"→
+  **无命中差值可 claim**；假设（前缀 142 tok 过短 / 预热窗口 / 字段语义）与控制台
+  对拍途径记入 ADR-003 数证补录；wall 均值 v2 2403.5 / v1 3362.3 ms 为整响应延迟
+  （非流式、n=6/臂），不作显著性结论；护栏 ¥0.0590。
+- **人工复核工具链**：`scripts/make_human_review.py`（离线、write-once）生成 4 份
+  盲评草稿（run7/run8 × C0/C3），judge 分隔离文末防锚定；复核本体 = 用户动作
+  （一致率 ≥80% 且反转 = 0 方可入简历）。
+- **成本**：run7 ¥1.1429 + run8 ¥0.7451 + bench 线上半 ¥0.0590；历次真 provider
+  调用上界合计 **≈¥3.28 / 预算 ¥200**（fail-closed 全程未触发）。`cost_yuan` 全线
+  null → 控制台核价后回填（用户侧）。
+
 ## 修正登记（对 proposal 的回写）
 见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006
 （ADR-006 已含 2026-11-09 在线化修订段）。
@@ -214,7 +252,8 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 - [x] 真 provider 评测**框架**上线 + mini 真跑（2026-11-09，C0/C3 均 0.9167，6/6 judged；数字属 mini 冒烟，全量 run + 30 题人工复核前不得进简历）。
 - [x] 预算护栏 fail-closed 上线（占位上界价；控制台核对待办见 P0 阶段 3）。
 - [x] LongMemEval-S(cleaned)/LoCoMo：pin + license + 确定性转换器 + **30 题×2 条件真跑落盘**（2026-11-09 run5/run6：LME 0.0/0.0，LoCoMo 0.227/0.167；诚实披露的管线机制证据，不作模型能力结论）。`docs/eval-datasets.md` 记录预处理与偏差。
-- [ ] 30 题人工复核流程执行 + 控制台价核对 → 全量 run → 回填 `RESUME-READY.md` A§1.4（P0 阶段 3）。
+- [x] **全量 run + §7.4 线上半 + 盲评草稿**（P0 阶段 3 步骤 1/2/5，2026-11-10：run7/run8 落盘、`cache-ab-online-2026-11-10-1.json`、4 份 `human-review-*-draft.md`；ADR-003 数证补录——**无命中差值可 claim，控制台对拍为准**）。详见上方「P0 阶段 3」小节。
+- [ ] 【用户侧】30 题人工复核（盲评草稿已就绪；一致率 ≥80% 且反转 = 0）→ DeepSeek 控制台核价 → `cost_yuan` 回填 → 回填 `RESUME-READY.md` A§1.4（以仓内 write-once 文件为准）。
 - [x] P1.a：会话摘要（§4.4）实现 + 触发/no-op 语义 + 编译器 episodic 接管（95 passed）。
 - [x] P1.b：遗忘=分层存储 archive_stale/restore + `make forget` + stats 可见（103 passed）。
 - [x] P1.c：`/v1/reflect` 真实现——聚簇→conflict 管道→单事务应用，501 stub 退役（110 passed）。
