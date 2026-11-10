@@ -50,6 +50,7 @@ class IngestReport(BaseModel):
     decisions: list[DecisionRecord] = Field(default_factory=list)
     skipped: list[SkippedRecord] = Field(default_factory=list)
     extraction_error: str | None = None
+    turns_ingested: int = 0  # raw role+content turns accepted (P1.a summary trigger input)
 
 
 def _provider_label(llm: LLMAdapter) -> str:
@@ -101,6 +102,9 @@ async def ingest(
     settings,
 ) -> IngestReport:
     provider = _provider_label(llm)
+    turns_ingested = sum(
+        1 for m in messages if m.get("role") in ("user", "assistant") and (m.get("content") or "").strip()
+    )
 
     # 1) extract (recent k turns only) — provider failure fails closed, zero writes
     try:
@@ -114,6 +118,7 @@ async def ingest(
             session_id=str(session_id) if session_id else None,
             provider=provider,
             extracted=0,
+            turns_ingested=turns_ingested,
             extraction_error=str(exc),
         )
     log.debug(
@@ -132,6 +137,7 @@ async def ingest(
         session_id=str(session_id) if session_id else None,
         provider=provider,
         extracted=len(candidates),
+        turns_ingested=turns_ingested,
     )
     for cand in candidates:
         key = " ".join(cand.content.lower().split())

@@ -195,7 +195,13 @@ class MockLLMAdapter:
         item = self._next()
         if isinstance(item, Exception):
             raise item
-        obj = json.loads(item) if isinstance(item, str) else item
+        if isinstance(item, str):
+            try:
+                obj = json.loads(item)  # sticky/queued JSON strings enforce strict parse
+            except json.JSONDecodeError as exc:
+                raise ProviderSchemaError(f"mock output is not strict JSON: {exc}") from exc
+        else:
+            obj = item
         return validate_one(schema, obj)
 
     async def chat_text(self, system: str, user: str) -> str:

@@ -16,7 +16,7 @@
     "license": "CC BY-NC 4.0",
     "total": 30,
     "seed": 2026,
-    "generated_at": "2026-11-09T04:32:31.831554+00:00",
+    "generated_at": "2026-11-10T05:00:10.428780+00:00",
     "note": "byte-identical rerun expected: same source pin + same seed + same quotas"
   },
   {
@@ -37,7 +37,7 @@
     "license": "MIT",
     "total": 30,
     "seed": 2026,
-    "generated_at": "2026-11-09T04:32:33.209499+00:00",
+    "generated_at": "2026-11-10T05:00:11.564451+00:00",
     "note": "byte-identical rerun expected: same source pin + same seed + same quotas"
   }
 ]

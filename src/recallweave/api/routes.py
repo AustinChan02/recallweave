@@ -66,6 +66,18 @@ async def memory_delete(
     return await svc.delete_memory(user, memory_id)
 
 
+@router.post("/sessions/{session_id}:summarize")
+async def session_summarize(
+    session_id: uuid.UUID,
+    user: uuid.UUID = Depends(current_user),
+    svc=Depends(get_service),
+) -> dict:
+    """P1.a (§4.4) rolling session summary; explicit trigger on top of the
+    post-ingest auto-trigger. The response always carries `provider` and a
+    `note` when no summary was produced (threshold / mock / empty output)."""
+    return await svc.summarize_session(user, session_id, force=True)
+
+
 @router.post("/reflect")
 async def reflect(user: uuid.UUID = Depends(current_user)) -> Response:
     """P1 honest stub (proposal §4.4/§5): NOT implemented — answer 501, never fake."""

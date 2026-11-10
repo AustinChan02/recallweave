@@ -12,9 +12,11 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import func, select, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
-from .models import Memory, MemSource
+from .models import Memory, MemSource, SessionSummary, SessionTurnStat
 from .vector_index import VectorIndex
 
 _KINDS = ("fact", "preference", "event", "instruction")
@@ -158,3 +160,102 @@ class MemoryRepo:
             out[f"{status}:{kind}"] = int(cnt)
             out[status] = out.get(status, 0) + int(cnt)
         return out
+
+
+class SummaryRepo:
+    """P1.a (§4.4): per-session turn counters + append-only rolling summaries."""
+
+    def __init__(self, engine: AsyncEngine) -> None:
+        self.engine = engine
+        self._maker = async_sessionmaker(engine, expire_on_commit=False)
+
+    async def bump_turns(self, user_id: uuid.UUID, session_id: uuid.UUID, n: int) -> None:
+        """Add n turns to the (user, session) counter (atomic upsert)."""
+        if n <= 0:
+            return
+        values = {"user_id": user_id, "session_id": session_id, "turns": n}
+        base = self.engine.dialect.name in ("postgresql",) and pg_insert or sqlite_insert
+        stmt = base(SessionTurnStat).values(**values)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[SessionTurnStat.user_id, SessionTurnStat.session_id],
+            set_={"turns": SessionTurnStat.turns + n, "updated_at": func.now()},
+        )
+        async with self._maker() as session, session.begin():
+            await session.execute(stmt)
+
+    async def turns_of(self, user_id: uuid.UUID, session_id: uuid.UUID) -> int:
+        async with self._maker() as session:
+            res = await session.execute(
+                select(SessionTurnStat.turns).where(
+                    SessionTurnStat.user_id == user_id, SessionTurnStat.session_id == session_id
+                )
+            )
+        return int(res.scalar() or 0)
+
+    async def turns_covered(self, user_id: uuid.UUID, session_id: uuid.UUID) -> int:
+        """Turn-count representation of the newest summary (0 = none yet)."""
+        async with self._maker() as session:
+            res = await session.execute(
+                select(SessionSummary.turns_covered)
+                .where(SessionSummary.user_id == user_id, SessionSummary.session_id == session_id)
+                .order_by(SessionSummary.seq.desc())
+                .limit(1)
+            )
+        return int(res.scalar() or 0)
+
+    async def next_seq(self, user_id: uuid.UUID, session_id: uuid.UUID) -> int:
+        async with self._maker() as session:
+            res = await session.execute(
+                select(func.max(SessionSummary.seq)).where(
+                    SessionSummary.user_id == user_id, SessionSummary.session_id == session_id
+                )
+            )
+        return int(res.scalar() or 0) + 1
+
+    async def last_summary(self, user_id: uuid.UUID, session_id: uuid.UUID) -> SessionSummary | None:
+        async with self._maker() as session:
+            res = await session.execute(
+                select(SessionSummary)
+                .where(SessionSummary.user_id == user_id, SessionSummary.session_id == session_id)
+                .order_by(SessionSummary.seq.desc())
+                .limit(1)
+            )
+        return res.scalar_one_or_none()
+
+    async def add_summary(
+        self,
+        user_id: uuid.UUID,
+        session_id: uuid.UUID,
+        *,
+        content: str,
+        token_est: int,
+        provider: str,
+        turns_covered: int,
+    ) -> SessionSummary:
+        seq = await self.next_seq(user_id, session_id)
+        row = SessionSummary(
+            user_id=user_id,
+            session_id=session_id,
+            seq=seq,
+            turns_covered=turns_covered,
+            content=content,
+            token_est=token_est,
+            provider=provider,
+        )
+        async with self._maker() as session, session.begin():
+            session.add(row)
+        return row
+
+    async def recent_summaries(self, user_id: uuid.UUID, limit: int = 8) -> list[SessionSummary]:
+        """Newest N rows re-ordered CHRONOLOGICALLY (compiler feeds on this
+        order; it is deterministic for a fixed set of rows)."""
+        async with self._maker() as session:
+            res = await session.execute(
+                select(SessionSummary)
+                .where(SessionSummary.user_id == user_id)
+                .order_by(SessionSummary.created_at.desc(), SessionSummary.seq.desc())
+                .limit(limit)
+            )
+        rows = list(res.scalars().all())
+        rows.reverse()
+        return rows

@@ -44,16 +44,18 @@ def prep_sqlite_path(db_url: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
 
 
-def _load_pg_migration() -> list[str]:
-    path = _MIGRATIONS_DIR / "001_init_vector.sql"
-    if not path.exists():
-        raise ConfigError(f"pg migration missing: {path}")
-    raw = path.read_text(encoding="utf-8")
+def _load_pg_migrations() -> list[str]:
+    """Every migrations/*.sql in name order (001_init_vector, 002_summaries, ...)."""
+    paths = sorted(_MIGRATIONS_DIR.glob("*.sql"))
+    if not any(p.name == "001_init_vector.sql" for p in paths):
+        raise ConfigError("pg migration missing: migrations/001_init_vector.sql")
     stmts: list[str] = []
-    for chunk in raw.split(";"):
-        stripped = "\n".join(ln for ln in chunk.splitlines() if not ln.strip().startswith("--")).strip()
-        if stripped:
-            stmts.append(stripped)
+    for path in paths:
+        raw = path.read_text(encoding="utf-8")
+        for chunk in raw.split(";"):
+            stripped = "\n".join(ln for ln in chunk.splitlines() if not ln.strip().startswith("--")).strip()
+            if stripped:
+                stmts.append(stripped)
     return stmts
 
 
@@ -61,7 +63,7 @@ async def ensure_schema(engine: AsyncEngine) -> None:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         if engine.dialect.name == "postgresql":
-            for stmt in _load_pg_migration():
+            for stmt in _load_pg_migrations():
                 await conn.execute(text(stmt))
         else:
             await conn.execute(

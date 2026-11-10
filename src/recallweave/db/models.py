@@ -15,6 +15,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     Index,
+    Integer,
     String,
     Text,
     Uuid,
@@ -62,4 +63,49 @@ class MemSource(Base):
     span: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class SessionTurnStat(Base):
+    """Per-(user, session) raw-turn counter (P1.a §4.4 trigger bookkeeping).
+
+    Turns are counted on ingest; summaries derive from STORED MEMORIES (the
+    bitemporal representation), raw transcripts are never persisted for this —
+    amendment A8 in the proposal §14 ledger.
+    """
+
+    __tablename__ = "session_turn_stats"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    session_id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class SessionSummary(Base):
+    """Append-only rolling session summary (P1.a §4.4). One row per trigger.
+
+    (session_id, seq) is the natural stable order the compiler relies on — no
+    rescore, no reordering: an append of a NEW seq never changes old bytes.
+    """
+
+    __tablename__ = "session_summaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False, index=True)
+    session_id: Mapped[uuid.UUID] = mapped_column(Uuid, nullable=False)
+    seq: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    turns_covered: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    token_est: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        Index("ix_ssum_session_seq", "session_id", "seq", unique=True),
+        Index("ix_ssum_user_created", "user_id", "created_at"),
     )

@@ -4,11 +4,13 @@ Assembly (proposal §4.3): one system message built in a FIXED segment order,
 then the working tail (original request messages) appended untouched:
 
     [persona (system, stable)] -> [PROFILE: hash-ordered semantic facts]
-    -> [EPISODIC: event memories, newest-first, stable for a fixed set]
+    -> [EPISODIC: session summaries in session-seq order (P1.a), OR event
+       memories newest-first as the pre-4.4 fallback]
 
 Cache-stable iron rules (ADR-003):
   #1 profile items are ordered by content-hash — a stable memory set always
-     emits identical bytes, so provider prefix-cache hits survive.
+     emits identical bytes, so provider prefix-cache hits survive. Summaries
+     are stable by construction: append-only (session_id, seq) rows.
   #2 injected items carry ONLY their text (no timestamps/relative times), and
      volatile parts (the working tail) sit strictly AFTER the stable block.
 
@@ -16,16 +18,15 @@ Budget (arguments are percentages of the TOTAL budget, defaults 10/30/40/20):
     persona = system% of budget; profile = profile%; episodic = episodic%;
     working = working% of budget. The working tail is trimmed from the OLDEST
     side until it fits its share (single-message overflow is tolerated as a
-    soft cap so the user's current turn is never dropped entirely). Selection
-    fills profile/episodic greedily by fused score, but OUTPUT ORDER follows
-    rule #1 regardless of score order.
+    soft cap so the user's current turn is never dropped entirely). The
+    profile slot fills greedily by fused score but OUTPUT ORDER follows
+    rule #1 regardless of score order; the episodic slot fills from the
+    NEWEST side (most relevant) but is re-rendered in chronological order.
 
 Trace (proposal §4.3): every considered memory becomes
     {memory_id, kind, score, rank, budget_slot, tokens, included, source_ref}
-so a debugger can answer "why did the agent say this".
-
-P1 cuts (recorded in devlog): the episodic layer consumes event-kind memories
-as a stand-in for session summaries while 4.4 is not implemented.
+so a debugger can answer "why did the agent say this"; summary lines appear
+with kind="summary" and a content-addressed id (same aesthetics as rule #1).
 """
 
 from __future__ import annotations
@@ -90,14 +91,19 @@ def build_system_block(
     persona_line: str,
     profile_contents: list[str],
     event_contents: list[str],
+    summary_contents: list[str] | None = None,
 ) -> str:
-    return "\n".join(text for _slot, text in _system_parts(persona_line, profile_contents, event_contents))
+    return "\n".join(
+        text
+        for _slot, text in _system_parts(persona_line, profile_contents, event_contents, summary_contents)
+    )
 
 
 def _system_parts(
     persona_line: str,
     profile_contents: list[str],
     event_contents: list[str],
+    summary_contents: list[str] | None = None,
 ) -> list[tuple[str, str]]:
     """(budget_slot, rendered_line) pairs — byte-exact building blocks so the
     compiler can account for EVERY line it emits."""
@@ -105,7 +111,10 @@ def _system_parts(
     if profile_contents:
         parts.append(("headers", "PROFILE (sorted for cache-prefix stability):"))
         parts.extend(("profile", f"- {c}") for c in profile_contents)
-    if event_contents:
+    if summary_contents:
+        parts.append(("headers", "RECENT SESSION SUMMARIES (chronological):"))
+        parts.extend(("episodic", f"- {c}") for c in summary_contents)
+    elif event_contents:
         parts.append(("headers", "RECENT EVENTS:"))
         parts.extend(("episodic", f"- {c}") for c in event_contents)
     return parts
@@ -172,6 +181,7 @@ async def compile_context(
     session_id: uuid.UUID | None,
     messages: list[dict],
     budget: int | None = None,
+    summaries: list[str] | None = None,
 ) -> CompileOutput:
     budget = budget if budget is not None else settings.context_budget_default
     caps = {
@@ -246,15 +256,60 @@ async def compile_context(
         return chosen
 
     profile_out = sorted(fill(semantic, "profile"), key=stable_order_key)
-    event_out = sorted(fill(events, "episodic"), key=_event_order_key_factory(rows_by_id))
 
-    tagged_parts = _system_parts(settings.persona_line, profile_out, event_out)
+    # --- episodic slot: P1.a session summaries take precedence ----------------
+    summary_out: list[str] = []
+    event_out: list[str] = []
+    summaries_used = 0
+    if summaries:
+        for s in reversed(summaries):  # fit from the NEWEST side, most relevant
+            t = tok.count(f"- {s}")
+            included = caps["episodic"] > 0 and summaries_used + t <= caps["episodic"]
+            traces.append(
+                TraceItem(
+                    memory_id=f"summary:{stable_order_key(s)}",
+                    kind="summary",
+                    score=0.0,  # summaries are not scored by retrieval — by design
+                    rank=None,
+                    budget_slot="episodic",
+                    tokens=t,
+                    included=included,
+                    reason=None if included else "budget_exhausted",
+                    source_ref=None,
+                )
+            )
+            if included:
+                summaries_used += t
+                summary_out.append(s)
+        summary_out.reverse()  # chronology restored for output
+        for m in events:
+            traces.append(
+                TraceItem(
+                    memory_id=str(m.id),
+                    kind=m.kind,
+                    score=round(_score_of(ranked, str(m.id)), 6),
+                    rank=_rank_of(ranked, str(m.id)),
+                    budget_slot="episodic",
+                    tokens=0,
+                    included=False,
+                    reason="slot_consumed_by_summaries",
+                    source_ref=_source_ref(m),
+                )
+            )
+    else:
+        event_out = sorted(fill(events, "episodic"), key=_event_order_key_factory(rows_by_id))
+
+    tagged_parts = _system_parts(settings.persona_line, profile_out, event_out, summary_out)
     system_text = "\n".join(text for _slot, text in tagged_parts)
     persona_tokens = tok.count(settings.persona_line)
     headers_tokens = sum(tok.count(t) for slot, t in tagged_parts if slot == "headers")
 
     used_profile = sum(tok.count(f"- {m.content}") for m in semantic if m.content in profile_out)
-    used_episodic = sum(tok.count(f"- {m.content}") for m in events if m.content in event_out)
+    used_episodic = (
+        summaries_used
+        if summaries
+        else sum(tok.count(f"- {m.content}") for m in events if m.content in event_out)
+    )
     system_tokens = tok.count(system_text)
     usage = UsageInfo(
         budget=budget,

@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     budget_episodic_pct: float = 0.40
     budget_working_pct: float = 0.20
     working_turns: int = 12
+    # P1.a §4.4 session-summarization trigger: every N turns per session.
+    summarize_every_turns: int = 20
+    summary_recent_limit: int = 8
     # Cache-stable rule#2: profile/episodic items must never embed wall-clock relative times.
     persona_line: str = (
         "You are an assistant with durable long-term memory of the user. Ground your answers "

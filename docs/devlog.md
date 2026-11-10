@@ -102,6 +102,43 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
   真分支全链路）、answer 失败→unjudged、echo 协议回归。
 - 基线：**89 passed, 1 skipped**；`make lint` 全绿（52 files formatted）。
 
+### 真 provider 上的量级评测（P0 阶段 2，pin 数据集）
+- 数据集 pin + 字节级转换器上线（`9e93932`）：LongMemEval-S **cleaned**（MIT，
+  sha256 与 HF LFS oid 双重验证）、LoCoMo（**CC BY-NC 4.0** 非商业，URL pin 到
+  commit `3eb6f2c5`）；`--seed 2026 --total 30` 分层抽样，重跑 diff=∅。
+  预处理即代码：会话日期注入（时序题可答）、LoCoMo 说话人名内联、LME 原生角色保留。
+- **LongMemEval-S-cleaned t30 真跑（run5）**：C0 accuracy **0.000** /
+  C3 accuracy **0.000**，judged 30/30，护栏上界 ¥0.865（157k in / 14.7k out）。
+  抽查产物：所有回答皆是"上下文没有该信息"——本轮测到的是**管线机制缺失**：
+  （1）C0 last-20 截窗在 115k 历史上几乎必然丢证据；（2）mock 抽取每轮写一条
+  噪声记忆，候选池 newest-200 截断把相关旧记忆挤出检索视野；（3）hash embedding
+  语义能力弱（dev-only 占位）。这三点都是**诚实披露的测得弱点**，不是 bug；
+  升级（真抽取 + BGE + 调预算）列为后续实验面，不混入本轮结论。
+- **LoCoMo t30 真跑（run6）**：C0 **0.2267** / C3 **0.1667**（judged 30/30，
+  上界 ¥0.427）。会话更短、截窗偶有命中，差异与预期一致。
+- judge 行为合理性抽查：拒绝给"我不知道"式回答判 0，部分信息给 0.5 并说明
+  理由——已非关键词匹配，是人审模板的合理搭档。
+- 成本记账：三个真跑（run4/5/6）上界合计 ≈ **¥1.33**，预算纪律成立。
+
+### P1.a 会话摘要（§4.4）落地
+- 新表：`session_turn_stats`（触发计数）+ `session_summaries`（(session_id, seq)
+  UNIQUE 只追加——顺序即会话序，先天 cache-stable）；`migrations/002`。
+- `service.summarize_session`：阈值 20 轮（可配）；**摘要源材 = 会话内已存记忆**
+  （A8 修订：原始转写不持久化，隐私面取择）；低于阈值不发起调用；mock 未脚本化
+  → ProviderError → `summarized=false` + note，**决不伪造摘要**；脚本化 mock
+  （FIFO/sticky）可产出摘要但行内 provider 标签如实标 "mock"。
+- 编译器：episodic 槽优先吃会话摘要（取新弃旧至 cap、渲染按时间正序），
+  无摘要回退 event 记忆（离线评测协议不受影响——run1/2/3 字节兼容验证过）；
+  trace 增 kind=summary、内容寻址 id（`summary:<md5前12位>`）。
+- ingest 自动摘要仅对真 provider 开启：脚本化 mock 的队列被抽取/冲突路径共用，
+ 不让摘要调用挤占脚本（评测 harness 在 mock 下字节不变）。
+- 顺手修掉两个真缺陷：(1) `MockLLMAdapter` 的 sticky 传非 JSON 字符串时
+  `chat_json` 曾裸抛 JSONDecodeError（fail-open 漏洞）→ 包成 ProviderSchemaError；
+  (2) compiler 新增 summary trace 后 `_touch` 把 `summary:<hash>` 当 UUID 解析
+ → 已按前缀过滤。
+- 测试：95 passed / 1 skipped（新增 6 个 P1.a 用例：阈值边界、追加序、mock no-op、
+  编译器接管与回退、ingest 轮计数）。
+
 ## 修正登记（对 proposal 的回写）
 见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006
 （ADR-006 已含 2026-11-09 在线化修订段）。
@@ -109,8 +146,10 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 ## 待办（诚实未做清单 → 具体实施步骤见 `docs/TODO.md`）
 - [x] 真 provider 评测**框架**上线 + mini 真跑（2026-11-09，C0/C3 均 0.9167，6/6 judged；数字属 mini 冒烟，全量 run + 30 题人工复核前不得进简历）。
 - [x] 预算护栏 fail-closed 上线（占位上界价；控制台核对待办见 P0 阶段 3）。
-- [ ] LongMemEval-S / LoCoMo：pin 版本 + license → `scripts/download_data.py` → `docs/eval-datasets.md`（P0 阶段 2）。
-- [ ] 全量 run + 30 题人工复核 + 控制台价核对→ 回填 `RESUME-READY.md` A§1.4（P0 阶段 3）。
-- [ ] P1：会话摘要（§4.4）、遗忘归档（§4.5）、`/v1/reflect` 真实现（可离线开发）。
+- [x] LongMemEval-S(cleaned)/LoCoMo：pin + license + 确定性转换器 + **30 题×2 条件真跑落盘**（2026-11-09 run5/run6：LME 0.0/0.0，LoCoMo 0.227/0.167；诚实披露的管线机制证据，不作模型能力结论）。`docs/eval-datasets.md` 记录预处理与偏差。
+- [ ] 30 题人工复核流程执行 + 控制台价核对 → 全量 run → 回填 `RESUME-READY.md` A§1.4（P0 阶段 3）。
+- [x] P1.a：会话摘要（§4.4）实现 + 触发/no-op 语义 + 编译器 episodic 接管（95 passed）。
+- [ ] P1.b：遗忘=分层存储 archive_stale + `make forget`（可离线开发）。
+- [ ] P1.c：`/v1/reflect` 真实现（近重复聚簇 → conflict 管道），替换 501 stub。
 - [x] pg 集成测试真跑过一轮（2026-11-09，Docker 起 pgvector，1 passed，修两 bug）。
 - [ ] mypy strict 与 CI（`make typecheck` + `.github/workflows/ci.yml`）。

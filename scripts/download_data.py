@@ -24,7 +24,6 @@ import argparse
 import hashlib
 import json
 import random
-import re
 import sys
 import tomllib
 import urllib.request
@@ -45,7 +44,13 @@ _LME_QUOTA = {
     "single-session-assistant": 4,
     "single-session-preference": 4,
 }
-_LOCOMO_CATEGORY = {"1": "single-hop", "2": "multi-hop", "3": "temporal", "4": "open-domain", "5": "adversarial"}
+_LOCOMO_CATEGORY = {
+    "1": "single-hop",
+    "2": "multi-hop",
+    "3": "temporal",
+    "4": "open-domain",
+    "5": "adversarial",
+}
 _LOCOMO_QUOTA = {"single-hop": 8, "multi-hop": 8, "temporal": 6, "open-domain": 4, "adversarial": 4}
 
 
@@ -98,7 +103,6 @@ def _lme_subset(raw: list[dict], total: int, seed: int) -> list[dict]:
     for items in by_type.values():
         rng.shuffle(items)
     picked: list[dict] = []
-    pools = list(by_type.items())
     for t, q in _LME_QUOTA.items():
         picked.extend(by_type.get(t, [])[:q])
     if len(picked) > total:  # trim evenly for total overrides
@@ -143,7 +147,11 @@ def _convert_locomo_item(conv: dict, qa: dict) -> dict:
     speakers = {conversation.get("speaker_a", "A"), conversation.get("speaker_b", "B")}
     turns: list[dict] = []
     sessions = sorted(
-        ((int(k.rsplit("_", 1)[1]), k) for k in conversation if k.startswith("session_") and not k.endswith(("date_time",))),
+        (
+            (int(k.rsplit("_", 1)[1]), k)
+            for k in conversation
+            if k.startswith("session_") and not k.endswith(("date_time",))
+        ),
     )
     for n, key in sessions:
         date_time = conversation.get(f"{key}_date_time")
@@ -221,7 +229,9 @@ def do_convert(pins: dict[str, dict], ds_id: str, total: int, seed: int) -> None
             "note": "byte-identical rerun expected: same source pin + same seed + same quotas",
         }
     )
-    _MANIFEST_PATH.write_text(json.dumps(manifest_rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    _MANIFEST_PATH.write_text(
+        json.dumps(manifest_rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
     print(f"[{ds_id}] converted → {out_path} ({len(items)} items, types={counts})")
     print(f"         output sha256: {_sha256(out_path)} (recorded in {rel_path_of(_MANIFEST_PATH)})")
 
@@ -233,7 +243,11 @@ def rel_path_of(p: Path) -> str:
 def do_list(pins: dict[str, dict]) -> None:
     for ds_id, pin in pins.items():
         present = (_ROOT / pin["file"]).exists()
-        state = "present" if present and _sha256(_ROOT / pin["file"]) == pin["sha256"] else ("present, checksum differs" if present else "not downloaded")
+        state = (
+            "present"
+            if present and _sha256(_ROOT / pin["file"]) == pin["sha256"]
+            else ("present, checksum differs" if present else "not downloaded")
+        )
         print(f"- {ds_id}: {pin['source']}")
         print(f"    license={pin['license']} | pinned={pin['pinned']} | sha256={pin['sha256'][:12]}…")
         print(f"    local: {pin['file']} [{state}]")
