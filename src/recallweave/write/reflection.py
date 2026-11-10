@@ -25,6 +25,7 @@ and it never deletes rows physically (status transitions only).
 from __future__ import annotations
 
 import uuid
+from typing import cast
 
 from pydantic import BaseModel, Field
 
@@ -35,8 +36,8 @@ from ..core.logging import get_logger
 from ..db.models import Memory
 from ..db.repos import MemoryRepo, aware
 from ..db.vector_index import VectorIndex, cosine
-from .conflict import Neighbor, resolve_with_llm
-from .extraction import Extracted
+from .conflict import Decision, Neighbor, resolve_with_llm
+from .extraction import Extracted, Kind
 from .pipeline import DecisionRecord, SkippedRecord, _provider_label, _record
 
 log = get_logger(component="write.reflection")
@@ -109,7 +110,7 @@ async def reflect(
 
     # ---- decide EVERY cluster BEFORE opening the write transaction -----------
     # (fail-closed: a mid-run provider failure never reaches row state)
-    resolutions: list[tuple[list[int], object]] = []
+    resolutions: list[tuple[list[int], Decision]] = []
     for members in clusters:
         newest_idx = members[-1]  # rows are chronological; candidate = newest
         newest = rows[newest_idx]
@@ -122,7 +123,7 @@ async def reflect(
             reverse=True,
         )
         candidate = Extracted(
-            kind=newest.kind,
+            kind=cast(Kind, newest.kind),  # DB column is str; kind was validated at the write gate
             content=newest.content,
             importance=newest.importance,
             span=(newest.meta or {}).get("span"),

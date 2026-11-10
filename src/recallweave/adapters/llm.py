@@ -116,9 +116,10 @@ class OpenAICompatAdapter:
             body["response_format"] = {"type": "json_object"}
         return body
 
-    async def _send_once(self, body: dict) -> str:
-        """One provider round-trip. Raises: _Retryable (429/5xx), ProviderError
-        (4xx — permanent), TransportError/Timeout (retryable)."""
+    async def _send_once(self, body: dict) -> tuple[str, dict]:
+        """One provider round-trip. Returns (content, provider_usage). Raises:
+        _Retryable (429/5xx), ProviderError (4xx — permanent),
+        TransportError/Timeout (retryable)."""
         try:
             resp = await self._client.post(self._url, json=body)
         except (httpx.TimeoutException, httpx.TransportError):
@@ -135,9 +136,9 @@ class OpenAICompatAdapter:
                 detail={"status": exc.response.status_code},
             ) from exc
         payload = resp.json()
-        usage = payload.get("usage") or {}
+        usage = dict(payload.get("usage") or {})
         self.last_usage = usage  # only SUCCESSFUL attempts ever reach here
-        return _extract_content(payload), self.last_usage
+        return _extract_content(payload), usage
 
     async def _with_retries(self, factory, label: str):
         """Bounded retries over ONE attempt factory: transport failures AND

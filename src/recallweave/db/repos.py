@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -269,8 +270,13 @@ class SummaryRepo:
         if n <= 0:
             return
         values = {"user_id": user_id, "session_id": session_id, "turns": n}
-        base = self.engine.dialect.name in ("postgresql",) and pg_insert or sqlite_insert
-        stmt = base(SessionTurnStat).values(**values)
+        # The dialect split is EXPLICIT: pg/sqlite dml types share no common base
+        # exposing on_conflict_do_update, so mypy cannot unify them — no truthy trick.
+        stmt: Any = (
+            pg_insert(SessionTurnStat).values(**values)
+            if self.engine.dialect.name == "postgresql"
+            else sqlite_insert(SessionTurnStat).values(**values)
+        )
         stmt = stmt.on_conflict_do_update(
             index_elements=[SessionTurnStat.user_id, SessionTurnStat.session_id],
             set_={"turns": SessionTurnStat.turns + n, "updated_at": func.now()},

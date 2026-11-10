@@ -1,4 +1,4 @@
-.PHONY: setup run test lint bench db-up db-down reset demo forget eval-smoke
+.PHONY: setup run test lint typecheck bench db-up db-down reset demo forget eval-smoke
 
 setup:
 	uv venv --python 3.12
@@ -12,7 +12,10 @@ test:
 
 lint:
 	uv run ruff check src tests evals bench scripts sdk_demo.py
-	uv run ruff format --check src tests evals bench
+	uv run ruff format --check src tests evals bench scripts sdk_demo.py
+
+typecheck:
+	uv run mypy src/recallweave --ignore-missing-imports
 
 db-up:
 	docker compose up -d db

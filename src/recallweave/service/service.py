@@ -24,7 +24,7 @@ from ..read.compiler import CompileOutput, compile_context
 from ..read.fusion import mmr_select, rrf_fuse, weighted_rank
 from ..read.retrievers import lexical_lane, recency_lane
 from ..tokens import counter
-from ..write.pipeline import IngestReport, ingest
+from ..write.pipeline import IngestReport, _provider_label, ingest
 from ..write.reflection import ReflectionReport
 from ..write.reflection import reflect as _run_reflection
 
@@ -116,7 +116,7 @@ class RecallWeaveService:
         turns = await self.sum_repo.turns_of(user_id, session_id)
         covered = await self.sum_repo.turns_covered(user_id, session_id)
         every = self.settings.summarize_every_turns
-        label = self.llm.provider_label
+        label = _provider_label(self.llm)
         base = {"session_id": str(session_id), "turns": turns, "turns_covered": covered, "provider": label}
         if turns == 0:
             return {**base, "summarized": False, "note": "no turns ingested for this session"}

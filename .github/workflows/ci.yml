@@ -1,0 +1,76 @@
+# P2 CI pipeline (TODO P2 step 3): ruff -> mypy -> pytest(sqlite) -> pg
+# integration (real pgvector service container) -> offline eval smoke.
+#
+# Honesty constraints honored here:
+#   * eval-smoke runs OFFLINE fixtures with mock judge — no API key in CI,
+#     no fabricated numbers: results write to /tmp/eval-ci (NOT the repo's
+#     write-once evals/results dir, which is reserved for real runs).
+#   * the pg job is a separate env: sqlite suite must stay green without any
+#     Postgres present (RECALLWEAVE_TEST_PG_URL unset -> integration skips).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv + Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync deps
+        run: uv sync --extra dev
+
+      - name: ruff (lint + format, src/tests/evals/bench/scripts/sdk_demo)
+        run: |
+          uv run ruff check src tests evals bench scripts sdk_demo.py
+          uv run ruff format --check src tests evals bench scripts sdk_demo.py
+
+      - name: mypy (public-interface check, ignore-missing-imports)
+        run: uv run mypy src/recallweave --ignore-missing-imports
+
+      - name: pytest (sqlite suite; pg integration skips without env)
+        run: uv run pytest
+
+      - name: eval smoke (offline fixtures, mock judge, quarantined results dir)
+        run: uv run python evals/run_eval.py --dataset evals/fixtures/mini_eval.jsonl --conditions C0,C3 --judge mock --results-dir /tmp/eval-ci
+
+  pg-integration:
+    runs-on: ubuntu-latest
+    env:
+      RECALLWEAVE_TEST_PG_URL: postgresql+asyncpg://recallweave:recallweave@localhost:5432/recallweave
+    services:
+      pg:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: recallweave
+          POSTGRES_PASSWORD: recallweave
+          POSTGRES_DB: recallweave
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U recallweave"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv + Python 3.12
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Sync deps
+        run: uv sync --extra dev
+
+      - name: pytest (postgres + pgvector dialect surface)
+        run: uv run pytest tests/test_integration_pg.py

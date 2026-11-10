@@ -101,8 +101,8 @@ def mmr_select(
     selected: list[str] = []
     candidates = [mid for mid, _ in ranked]
     while candidates and len(selected) < k:
-        best = None
         best_val = -1e9
+        best: str | None = None
         for mid in candidates:
             div = 0.0
             if selected:
@@ -115,6 +115,8 @@ def mmr_select(
             if val > best_val:
                 best_val = val
                 best = mid
+        if best is None:  # unreachable (best_val starts below any val), typed for mypy
+            break
         selected.append(best)
         candidates.remove(best)
     return selected

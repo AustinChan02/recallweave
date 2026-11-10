@@ -135,11 +135,12 @@ def make_settings(**overrides: Any) -> Settings:
     return Settings(**overrides)
 
 
+_CACHED: Settings | None = None
+
+
 def from_env() -> Settings:
     """Cached process-wide settings for the running server."""
     global _CACHED
-    try:
-        return _CACHED  # type: ignore[name-defined]
-    except NameError:
+    if _CACHED is None:
         _CACHED = Settings()
-        return _CACHED
+    return _CACHED

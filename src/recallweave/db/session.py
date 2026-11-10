@@ -8,7 +8,6 @@ Both are idempotent and safe to run concurrently on startup.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
 from pathlib import Path
 
 from sqlalchemy import text
@@ -79,7 +78,7 @@ class Database:
         self.engine = engine
         self.session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
-    def session(self) -> AsyncIterator[AsyncSession]:
+    def session(self) -> AsyncSession:
         return self.session_factory()
 
     @property

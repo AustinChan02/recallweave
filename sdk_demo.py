@@ -34,9 +34,7 @@ def main() -> int:
             print("ingest:", report)
         print("search:", c.search("用户能吃什么", k=3))
 
-        out = c.compile(
-            [{"role": "user", "content": "我吃什么要小心？"}], budget_tokens=600
-        )
+        out = c.compile([{"role": "user", "content": "我吃什么要小心？"}], budget_tokens=600)
         print("compile.system_head:", out["context_messages"][0]["content"][:120])
         print("compile.usage:", out["usage"])
         print("provider labels:", out["provider"], "/ search provider is local-hybrid")

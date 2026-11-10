@@ -23,11 +23,15 @@ def _error_response(status: int, body: dict) -> JSONResponse:
     return JSONResponse(status_code=status, content=body)
 
 
-async def _on_recall_weave_error(_request: Request, exc: RecallWeaveError) -> JSONResponse:
+async def _on_recall_weave_error(_request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, RecallWeaveError):  # dispatch pairs this handler; fail loud if violated
+        raise exc
     return _error_response(exc.status_code, exc.as_dict())
 
 
-async def _on_validation_error(_request: Request, exc: RequestValidationError) -> JSONResponse:
+async def _on_validation_error(_request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, RequestValidationError):
+        raise exc
     return _error_response(
         422,
         {
