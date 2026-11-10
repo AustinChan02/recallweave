@@ -25,6 +25,8 @@ from ..read.fusion import mmr_select, rrf_fuse, weighted_rank
 from ..read.retrievers import lexical_lane, recency_lane
 from ..tokens import counter
 from ..write.pipeline import IngestReport, ingest
+from ..write.reflection import ReflectionReport
+from ..write.reflection import reflect as _run_reflection
 
 log = get_logger(component="service")
 
@@ -297,6 +299,22 @@ class RecallWeaveService:
             "counts_by_status_kind": counts,
             "archived_total": counts.get("archived", 0),  # P1.b §4.5 分层存储可见性
         }
+
+    # ----------------------- P1.c §5 /v1/reflect -----------------------
+
+    async def reflect(self, user_id: uuid.UUID) -> ReflectionReport:
+        """Near-duplicate clustering -> the SAME conflict pipeline as ingest.
+        Was an honest 501 stub until 2026-11-10 (devlog: the 501→real transition).
+        Zero cluster members → zero LLM calls; provider failures surface as
+        `skipped` reasons, never as fabricated merges."""
+        return await _run_reflection(
+            user_id=user_id,
+            llm=self.llm,
+            embedder=self.embedder,
+            repo=self.repo,
+            vector=self.vector,
+            settings=self.settings,
+        )
 
 
 def build_service(settings: Settings) -> RecallWeaveService:

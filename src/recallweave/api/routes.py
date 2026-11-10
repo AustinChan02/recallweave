@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Depends, Request, Response
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, Request
 
 from .. import APP_VERSION
 from .deps import current_user, get_service
@@ -79,20 +78,16 @@ async def session_summarize(
 
 
 @router.post("/reflect")
-async def reflect(user: uuid.UUID = Depends(current_user)) -> Response:
-    """P1 honest stub (proposal §4.4/§5): NOT implemented — answer 501, never fake."""
-    return JSONResponse(
-        status_code=501,
-        content={
-            "code": "not_implemented",
-            "message": (
-                "/v1/reflect is a P1 feature (periodic reflection). It is not "
-                "implemented in this MVP and thus returns 501 instead of pretending to work."
-            ),
-            "detail": {"roadmap_item": "P1-reflect"},
-        },
-        headers={"Allow": "POST"},
-    )
+async def reflect(
+    user: uuid.UUID = Depends(current_user),
+    svc=Depends(get_service),
+) -> dict:
+    """P1.c real reflection: near-duplicate clustering over active memories,
+    per-cluster resolution through the ingest conflict pipeline (fail-closed
+    coercion), all applied merges in ONE transaction. This replaced an honest
+    501 stub on 2026-11-10 (devlog records the 501→real transition)."""
+    report = await svc.reflect(user)
+    return report.model_dump()
 
 
 @router.get("/health")

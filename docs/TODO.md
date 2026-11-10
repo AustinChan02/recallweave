@@ -57,11 +57,11 @@
 3. [x] tests：两个边界均严格 `<`（恰好 30d / importance 0.3 → 保留）、never-accessed 用 created_at 计龄、恢复闭环、取证（分层隐藏检索但不删行）。
    现场证据：临时 DB 3 行播种 → dry-run 报 1 候选 → 真跑 archived 1 → **sqlite 直查 3 行都在**。
 
-### P1.c `/v1/reflect` 真实现
-1. 聚簇：对 active 记忆两两余弦 > 0.95 的近重复簇（复用 hash embedding）。
-2. 每簇送既有 conflict 管道（LLM 或 mock sticky NOOP）→ 产出 UPDATE 决策，全走 `meta.decision` 审计。
-3. 路由从 501 换真实现；tests：聚簇→合并链→审计字段；501 测试相应替换。
-4. devlog 记删除 501 诚实 stub 的时间点（面谈卖点：从"诚实拒绝"到"真实现"的演进）。
+### P1.c `/v1/reflect` 真实现【✅ 2026-11-10 完成，501 stub 退役】
+1. [x] 聚簇：active 记忆扫描 ≤200，纯 Python O(n²) 余弦（hash embedding 复用）+ union-find，阈值严格 > 0.95；无簇 → 零 LLM 调用（空队列自证）。
+2. [x] 每簇送既有 conflict 管道（candidate=最新成员 + resolve_with_llm + fail-closed coercion 原样复用）→ 单事务应用；UPDATE 合并成新行（importance=max，`meta.decision{reflect,cluster}` 审计 + 全员 bitemporal 关链）；DELETE/NOOP 如报所述。
+3. [x] 路由 501 → 真实现；tests：聚簇→合并链→审计字段 / NOOP / DELETE / 未脚本化诚实 skip / coercion 拒改名 candidate / API 级零伪造面。
+4. [x] devlog 记录 501→真实现的时间点与「同款 detached 坑在 reflect 复现」的落网记。
 
 ---
 

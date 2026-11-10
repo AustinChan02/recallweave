@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     # explicit user DELETE.
     forget_tau_days: float = 30.0
     forget_importance_lt: float = 0.3
+    # P1.c §5 /v1/reflect: near-duplicate clustering + conflict pipeline.
+    reflect_threshold: float = 0.95
+    reflect_max_scan: int = 200
     # Cache-stable rule#2: profile/episodic items must never embed wall-clock relative times.
     persona_line: str = (
         "You are an assistant with durable long-term memory of the user. Ground your answers "

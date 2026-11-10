@@ -125,13 +125,14 @@ class VectorIndex:
                     vt = vt.replace(tzinfo=UTC)
                 if vt <= now:
                     continue
-            sim = _cosine(query_embedding, json.loads(raw))
+            sim = cosine(query_embedding, json.loads(raw))
             scored.append((mid, sim))
         scored.sort(key=lambda t: t[1], reverse=True)
         return scored[:k]
 
 
-def _cosine(a: list[float], b: list[float]) -> float:
+def cosine(a: list[float], b: list[float]) -> float:
+    """Public pure-cosine helper (reflect clustering; sqlite search path)."""
     if len(a) != len(b):
         return 0.0
     num = 0.0

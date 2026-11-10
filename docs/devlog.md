@@ -157,6 +157,29 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
   恢复闭环（含二次恢复拒绝）、未知/非归档 id 拒绝、端到端「归档即隐藏检索
   但不删行 + stats 可见 + 恢复后重见」。基线 **103 passed / 1 skipped**。
 
+### P1.c `/v1/reflect` 真实现（501 → 真实的演进完成）
+- **时间点**：2026-11-10，`api/routes.py` 里的诚实 501 stub 正式退役——
+ 面谈卖点：先"诚实拒绝"（不假装工作），再"真实现"（仍不假装决策力，
+ 失败照实报告）。两端的诚实是一套纪律，不是两种状态。
+- 聚簇：active 记忆（≤200 条扫描上限）一次 `embed_many`，纯 Python O(n²)
+  余弦 + union-find，阈值 **严格 >** 0.95（恰好阈值不合并——聚簇宁可漏检，
+  不把不同记忆熔在一起）。无簇 → **零 LLM 调用**（测试用空队列自证）。
+- 每簇一次既有 conflict 管道调用（candidate=最新成员，neighbors=较老成员，
+  `resolve_with_llm` + fail-closed coercion 原样复用）；UPDATE → 合并成一行
+  新行（importance 取簇内 max，`meta.decision{op,provider,reflect:true,
+  cluster:[ids]}` 审计 + bitemporal 链 `mark_superseded` 全员指向新行）；
+  DELETE → 仅被点名的 target 关链；NOOP → 记 skipped、行不动。
+- **真 bug 落网记**（测试当场抓住）：合并时①candidate 本尊没被 supersede、
+  ②detached ORM 副本直接改 flush 看不见——正是 `pipeline.py` 注释里记载过
+  的同款坑在 reflect 复现。修复：全部成员在写事务里经 `session.get`
+  重attach 后逐个关链；整个 reflection 的应用是**单事务**（与 ingest 同一
+  durability rule）。
+- 诚实面：未脚本化 mock → `skipped: provider_error_in_resolution`，
+  decisions 恒空，行状态零变动（API 级测试固定此面）。修复过程中还抓出
+  API 测试自身两个 bug：漏 `svc.bootstrap()`（schema 未建）与 Bearer 固定
+  dev-user（种到随机 uid）——证据先行，不猜。
+- 基线 **110 passed / 1 skipped**。
+
 ## 修正登记（对 proposal 的回写）
 见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006
 （ADR-006 已含 2026-11-09 在线化修订段）。
@@ -168,6 +191,6 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 - [ ] 30 题人工复核流程执行 + 控制台价核对 → 全量 run → 回填 `RESUME-READY.md` A§1.4（P0 阶段 3）。
 - [x] P1.a：会话摘要（§4.4）实现 + 触发/no-op 语义 + 编译器 episodic 接管（95 passed）。
 - [x] P1.b：遗忘=分层存储 archive_stale/restore + `make forget` + stats 可见（103 passed）。
-- [ ] P1.c：`/v1/reflect` 真实现（近重复聚簇 → conflict 管道），替换 501 stub。
+- [x] P1.c：`/v1/reflect` 真实现——聚簇→conflict 管道→单事务应用，501 stub 退役（110 passed）。
 - [x] pg 集成测试真跑过一轮（2026-11-09，Docker 起 pgvector，1 passed，修两 bug）。
 - [ ] mypy strict 与 CI（`make typecheck` + `.github/workflows/ci.yml`）。

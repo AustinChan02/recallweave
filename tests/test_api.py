@@ -111,10 +111,63 @@ class TestHappyPath:
 
 
 class TestReflect:
-    def test_reflect_is_honest_501(self, client_and_service):
+    """/v1/reflect became REAL on 2026-11-10 (P1.c) — formerly an honest 501.
+
+    The default fixture mock is UNSCRIPTED, so this test pins the honest
+    failure surface: reflection runs, reports zero fabrication, and any
+    provider trouble surfaces as skipped reasons — never row changes."""
+
+    def test_reflect_zero_clusters_costs_no_llm_call(self, client_and_service):
         client, _svc = client_and_service
         resp = client.post("/v1/reflect", headers=HEADERS)
-        assert resp.status_code == 501
+        assert resp.status_code == 200, resp.text
         body = resp.json()
-        assert body["code"] == "not_implemented"
-        assert "P1" in body["message"]
+        assert body["clusters_found"] == 0
+        assert body["decisions"] == [] and body["skipped"] == []
+        assert body["provider"] == "mock"  # honesty label always present
+
+    def test_reflect_reports_provider_error_as_skip_not_fabrication(self, client_and_service):
+        client, svc = client_and_service
+        import asyncio
+        import uuid
+
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        from recallweave.db.models import Memory
+
+        uid = uuid.UUID("11111111-1111-1111-1111-111111111111")  # the fixture's dev user
+        maker = async_sessionmaker(svc.repo.engine, expire_on_commit=False)
+
+        async def seed():
+            await svc.bootstrap()  # create schema BEFORE seeding (lifespan owns it too)
+            async with maker() as s, s.begin():
+                s.add_all(
+                    [
+                        Memory(
+                            user_id=uid,
+                            session_id=None,
+                            kind="fact",
+                            content="重复记忆甲",
+                            importance=0.5,
+                            status="active",
+                            meta={},
+                        ),
+                        Memory(
+                            user_id=uid,
+                            session_id=None,
+                            kind="fact",
+                            content="重复记忆甲",
+                            importance=0.5,
+                            status="active",
+                            meta={},
+                        ),
+                    ]
+                )
+
+        asyncio.run(seed())
+        resp = client.post("/v1/reflect", headers=HEADERS)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["clusters_found"] == 1
+        assert body["decisions"] == []  # unscripted mock: NOTHING fabricated
+        assert any(s["reason"].startswith("provider_error_in_resolution") for s in body["skipped"])
