@@ -9,7 +9,7 @@ attribute access survives — the classic rollback-expiry bug is pre-empted.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -147,6 +147,101 @@ class MemoryRepo:
                         .where(Memory.user_id == user_id, Memory.id == mid)
                         .values(last_accessed=now)
                     )
+
+    # ----------------------- P1.b §4.5 forgetting (archival) -------------------
+
+    @staticmethod
+    def _effective_access(m: Memory) -> datetime:
+        """Never-accessed rows age from creation — deterministic archival input."""
+        value = m.last_accessed if m.last_accessed is not None else m.created_at
+        return aware(value)
+
+    async def stale_candidates(
+        self,
+        *,
+        now: datetime,
+        tau_days: float = 30.0,
+        importance_lt: float = 0.3,
+        user_id: uuid.UUID | None = None,
+    ) -> list[Memory]:
+        """Active rows whose effective access is older than tau AND importance
+        below the cut. Strict `<` on BOTH boundaries: exactly-at-tau and
+        exactly-at-cut rows are KEPT (forgetting errs on retention).
+        Filter happens in Python on aware() datetimes — dialect-safe."""
+        stmt = select(Memory).where(Memory.status == "active")
+        if user_id is not None:
+            stmt = stmt.where(Memory.user_id == user_id)
+        async with self._maker() as session:
+            rows = (await session.execute(stmt)).scalars().all()
+        cutoff = now - timedelta(days=tau_days)
+        return [m for m in rows if self._effective_access(m) < cutoff and m.importance < importance_lt]
+
+    async def archive_stale(
+        self,
+        *,
+        now: datetime,
+        tau_days: float = 30.0,
+        importance_lt: float = 0.3,
+        user_id: uuid.UUID | None = None,
+    ) -> list[uuid.UUID]:
+        """P1.b (§4.5): 遗忘 = 分层存储，不是删除。
+
+        * only `status='active'` rows qualify — superseded chain rows and
+          deleted rows are NEVER touched;
+        * archived rows keep every column (content, embeddings, chain links):
+          recoverable via `restore()`;
+        * the audit trail lands in `meta.forgotten` (additive key, ADR-004
+          spirit: never rewrite history, only annotate).
+
+        `user_id=None` = whole-repository maintenance job (scripts/forget.py);
+        service-facing callers pass a concrete user (multi-tenant rule).
+        """
+        candidates = await self.stale_candidates(
+            now=now, tau_days=tau_days, importance_lt=importance_lt, user_id=user_id
+        )
+        if not candidates:
+            return []
+        async with self._maker() as session:
+            async with session.begin():
+                for m in candidates:
+                    meta = dict(m.meta or {})
+                    meta["forgotten"] = {
+                        "at": now.isoformat(),
+                        "reason": "stale+low-importance",
+                        "tau_days": tau_days,
+                        "importance_lt": importance_lt,
+                    }
+                    await session.execute(
+                        update(Memory)
+                        .where(
+                            Memory.user_id == m.user_id,
+                            Memory.id == m.id,
+                            Memory.status == "active",
+                        )
+                        .values(status="archived", meta=meta)
+                    )
+        return [m.id for m in candidates]
+
+    async def restore(self, user_id: uuid.UUID, memory_id: uuid.UUID) -> bool:
+        """archived → active (§4.5 可恢复). Returns False for unknown ids and
+        for any non-archived status — restoring superseded/deleted rows would
+        corrupt the bitemporal chain, so it is refused, not faked."""
+        async with self._maker() as session:
+            res = await session.execute(
+                select(Memory).where(Memory.user_id == user_id, Memory.id == memory_id)
+            )
+            row = res.scalar_one_or_none()
+        if row is None or row.status != "archived":
+            return False
+        meta = dict(row.meta or {})
+        meta["restored_at"] = datetime.now(UTC).isoformat()
+        async with self._maker() as session, session.begin():
+            await session.execute(
+                update(Memory)
+                .where(Memory.user_id == user_id, Memory.id == memory_id, Memory.status == "archived")
+                .values(status="active", meta=meta)
+            )
+        return True
 
     async def counts(self, user_id: uuid.UUID) -> dict[str, int]:
         async with self._maker() as session:

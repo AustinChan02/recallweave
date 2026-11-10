@@ -292,7 +292,11 @@ class RecallWeaveService:
         return {"deleted": True, "id": str(memory_id)}
 
     async def stats(self, user_id: uuid.UUID) -> dict:
-        return {"counts_by_status_kind": await self.repo.counts(user_id)}
+        counts = await self.repo.counts(user_id)
+        return {
+            "counts_by_status_kind": counts,
+            "archived_total": counts.get("archived", 0),  # P1.b §4.5 分层存储可见性
+        }
 
 
 def build_service(settings: Settings) -> RecallWeaveService:

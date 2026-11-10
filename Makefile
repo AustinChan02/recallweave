@@ -1,4 +1,4 @@
-.PHONY: setup run test lint bench db-up db-down reset demo
+.PHONY: setup run test lint bench db-up db-down reset demo forget eval-smoke
 
 setup:
 	uv venv --python 3.12
@@ -27,6 +27,9 @@ reset:
 
 bench:
 	uv run python bench/latency.py
+
+forget:
+	uv run python scripts/forget.py
 
 eval-smoke:
 	uv run python evals/run_eval.py --dataset evals/fixtures/mini_eval.jsonl --conditions C0,C3 --judge mock

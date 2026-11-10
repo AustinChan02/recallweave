@@ -139,6 +139,24 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 - 测试：95 passed / 1 skipped（新增 6 个 P1.a 用例：阈值边界、追加序、mock no-op、
   编译器接管与回退、ingest 轮计数）。
 
+### P1.b 遗忘 = 分层存储（§4.5）落地
+- `MemoryRepo` 三个公开方法：`stale_candidates`（只查不写）/`archive_stale`
+  （active → archived，**行与列全保留**；审计追加 `meta.forgotten{at,reason,
+  tau_days,importance_lt}`；superseded/deleted 永不触碰）/`restore`
+  （archived → active，补 `meta.restored_at`；对非 archived 状态拒绝恢复）。
+- 边界语义按提案「宁留勿忘」：两条边界都是**严格 `<`**——恰好 30d 未访问、
+  importance 恰为 0.3 的记忆一律保留；从未访问的行以 created_at 计龄
+  （`_effective_access`，方言安全地在 Python 侧过滤）。
+- 触发面：`scripts/forget.py`（`--dry-run` 直证：先报候选、写零字节）+
+  `make forget`；`/v1/stats` 新增 `archived_total` + 分类计数。
+- 现场证据（临时 DB 播种 3 行）：dry-run 精确报出唯一 stale+low 候选 →
+  真跑 archived 1 → sqlite 直查 **3 行全部仍在**（仅 status 变更）→
+  复跑 dry-run 候选归零。顺带修掉一个真 bug：`AsyncEngine` 关闭应是
+  `dispose()` 而非 `aclose()`（先前退出码非 0）。
+- 测试 +8：边界 ×2、唯一 active 资格、created_at 计龄、审计字段、
+  恢复闭环（含二次恢复拒绝）、未知/非归档 id 拒绝、端到端「归档即隐藏检索
+  但不删行 + stats 可见 + 恢复后重见」。基线 **103 passed / 1 skipped**。
+
 ## 修正登记（对 proposal 的回写）
 见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006
 （ADR-006 已含 2026-11-09 在线化修订段）。
@@ -149,7 +167,7 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 - [x] LongMemEval-S(cleaned)/LoCoMo：pin + license + 确定性转换器 + **30 题×2 条件真跑落盘**（2026-11-09 run5/run6：LME 0.0/0.0，LoCoMo 0.227/0.167；诚实披露的管线机制证据，不作模型能力结论）。`docs/eval-datasets.md` 记录预处理与偏差。
 - [ ] 30 题人工复核流程执行 + 控制台价核对 → 全量 run → 回填 `RESUME-READY.md` A§1.4（P0 阶段 3）。
 - [x] P1.a：会话摘要（§4.4）实现 + 触发/no-op 语义 + 编译器 episodic 接管（95 passed）。
-- [ ] P1.b：遗忘=分层存储 archive_stale + `make forget`（可离线开发）。
+- [x] P1.b：遗忘=分层存储 archive_stale/restore + `make forget` + stats 可见（103 passed）。
 - [ ] P1.c：`/v1/reflect` 真实现（近重复聚簇 → conflict 管道），替换 501 stub。
 - [x] pg 集成测试真跑过一轮（2026-11-09，Docker 起 pgvector，1 passed，修两 bug）。
 - [ ] mypy strict 与 CI（`make typecheck` + `.github/workflows/ci.yml`）。

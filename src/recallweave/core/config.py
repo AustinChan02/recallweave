@@ -79,6 +79,11 @@ class Settings(BaseSettings):
     # P1.a §4.4 session-summarization trigger: every N turns per session.
     summarize_every_turns: int = 20
     summary_recent_limit: int = 8
+    # P1.b §4.5 forgetting = archival: un-accessed for tau AND importance below
+    # cut → status='archived' (recoverable), NEVER deleted; deletion only via
+    # explicit user DELETE.
+    forget_tau_days: float = 30.0
+    forget_importance_lt: float = 0.3
     # Cache-stable rule#2: profile/episodic items must never embed wall-clock relative times.
     persona_line: str = (
         "You are an assistant with durable long-term memory of the user. Ground your answers "

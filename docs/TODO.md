@@ -45,16 +45,17 @@
 
 ## Track P1 · 提案 §4.4/§4.5/`/v1/reflect`（可全程离线开发，不依赖 key）
 
-### P1.a 会话摘要（§4.4）
-1. `migrations/002_session_summaries.sql`（pg）+ `ensure_schema` sqlite 分支：`session_summaries(session_id, seq, content, token_est, provider, created_at)`，只追加。
-2. `service.summarize_session()`：滚动计数每 20 轮触发；cheap model = 同 llm adapter（注释注明廉价档建议）；**mock 模式 = no-op + provider 标签**（不伪造摘要）。
-3. compiler episodic 层改造：优先取摘要（会话序天然稳定，满足 §4.3 顺序规则），补充 event 记忆；episodic cap 不变。
-4. tests：触发阈值边界 / mock fallback 铸bi / 与 event 补位的顺序稳定性。
+### P1.a 会话摘要（§4.4）【✅ 2026-11-10 完成，commit 329e082】
+1. [x] `migrations/002_session_summaries.sql`（pg）+ `session_turn_stats` 触发计数表；摘要**源材 = 会话内已存记忆**（修订 A8：原始转写不持久化），只追加 (session_id, seq)。
+2. [x] `service.summarize_session()`：阈值 20 轮；mock 未脚本化 → no-op + note（不伪造）；ingest 自动摘要仅真 provider 开启。
+3. [x] compiler episodic 层改造：摘要优先（新侧适配、时间正序渲染、trace kind=summary 内容寻址 id），无摘要回退 event（离线评测字节兼容已验证）。
+4. [x] tests：阈值边界 / mock 不伪造 / 追加序 / 编译器接管与回退 / ingest 轮计数（95 passed 时点 + 8）。
 
-### P1.b 遗忘=分层存储（§4.5）
-1. `MemoryRepo.archive_stale(now, tau=30d, importance_lt=0.3)`：active → archived（可恢复，√ 不删行）。
-2. 触发：`scripts/forget.py` + `make forget`（个人部署明确不做后台线程）；`/v1/stats` 增加 archived 分类。
-3. tests：边界（正好 30d / importance 0.3）与恢复路径（archived 不参与检索）。
+### P1.b 遗忘=分层存储（§4.5）【✅ 2026-11-10 完成】
+1. [x] `MemoryRepo.stale_candidates/archive_stale/restore`：active → archived（**行与列全保留**，可恢复；审计写 `meta.forgotten`，恢复补 `meta.restored_at`；superseded/deleted 永不触碰）。
+2. [x] 触发：`scripts/forget.py`（`--dry-run` 直证）+ `make forget`；`/v1/stats` 暴露 `archived_total` + 分类计数。
+3. [x] tests：两个边界均严格 `<`（恰好 30d / importance 0.3 → 保留）、never-accessed 用 created_at 计龄、恢复闭环、取证（分层隐藏检索但不删行）。
+   现场证据：临时 DB 3 行播种 → dry-run 报 1 候选 → 真跑 archived 1 → **sqlite 直查 3 行都在**。
 
 ### P1.c `/v1/reflect` 真实现
 1. 聚簇：对 active 记忆两两余弦 > 0.95 的近重复簇（复用 hash embedding）。
