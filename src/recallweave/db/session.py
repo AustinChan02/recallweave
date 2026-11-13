@@ -51,8 +51,13 @@ def _load_pg_migrations() -> list[str]:
     stmts: list[str] = []
     for path in paths:
         raw = path.read_text(encoding="utf-8")
-        for chunk in raw.split(";"):
-            stripped = "\n".join(ln for ln in chunk.splitlines() if not ln.strip().startswith("--")).strip()
+        # Strip `--` comment lines BEFORE splitting on ';': a semicolon inside
+        # a comment (002: "...create_all; this file makes...") would otherwise
+        # split the statement stream and feed Postgres the comment tail as
+        # SQL. (Caught by the repo's first public CI pg-integration run.)
+        code = "\n".join(ln for ln in raw.splitlines() if not ln.strip().startswith("--"))
+        for chunk in code.split(";"):
+            stripped = chunk.strip()
             if stripped:
                 stmts.append(stripped)
     return stmts
