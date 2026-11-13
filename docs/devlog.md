@@ -284,6 +284,22 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
 - `make lint` exit=0（ruff check + format，73 files）· `make typecheck` 0 errors
   （32 files）· `uv run pytest` **110 passed + 1 skipped**（pg 集成需 PG，离线默认跳）。
 
+### GitHub 上线 + CI 首跑（2026-11-13）
+- 双仓库发布：`AustinChan02/recallweave` + `AustinChan02/threadwright`（public，MIT；ThreadWright
+  推送前补了 LICENSE 并同步 README 徽章/已知限制）。发布前查重：RecallWeave 与
+  `Herricka/RecallWeave`（同领域，175★）撞名、ThreadWright 与一个 C# 桌面 agent 撞名——
+  用户拍板保留原名，靠 description + topics 区分。
+- **CI 首跑抓到一个真 bug**：`suite` job 绿（ruff/mypy/pytest/eval-smoke 在 Actions 全过），
+  但 `pg-integration` 挂——`_load_pg_migrations` 先按 `;` 切分**再**剥 `--` 注释，002 头部
+  注释里的分号（"...create_all; this file makes..."）把语句流切在注释中间，Postgres 吃到
+  `this file makes` + `CREATE TABLE` 拼成的非法 SQL（ProgrammingError: syntax error at or
+  near "this"）。本地 pg 测试需要 Docker，11-09 之后一直被 skip，CI 正好补上这个盲区。
+- 修复（`7940527`）：加载器**先剥注释行、再按 `;` 切分**（分号在注释里是合法散文）；新增
+  离线回归测试 `tests/test_pg_migrations_loader.py`（语句必须纯 DDL 无注释残留 + 002 散文
+  不得泄漏）；本地真 pgvector 复验（`RECALLWEAVE_TEST_PG_URL`，`pytest -m integration`
+  1 passed，全套 112 passed + 1 skipped）。CI 第二轮（run `43382730219`，head `7940527`）
+  **suite + pg-integration 全绿**。
+
 ## 修正登记（对 proposal 的回写）
 见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006
 （ADR-006 已含 2026-11-09 在线化修订段）。
