@@ -1,4 +1,4 @@
-.PHONY: setup run test lint typecheck bench db-up db-down reset demo forget eval-smoke
+.PHONY: setup run demo seed test lint typecheck bench db-up db-down reset demo forget eval-smoke
 
 setup:
 	uv venv --python 3.12
@@ -6,6 +6,12 @@ setup:
 
 run:
 	uv run uvicorn recallweave.api.app:app --reload --port 8100
+
+demo:
+	./scripts/demo.sh
+
+seed:
+	uv run python scripts/seed_demo.py
 
 test:
 	uv run pytest
