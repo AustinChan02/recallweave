@@ -244,6 +244,46 @@ hash 相似度内容相关 → "必须走 LLM 路由"的用例**不可依赖**�
   调用上界合计 **≈¥3.28 / 预算 ¥200**（fail-closed 全程未触发）。`cost_yuan` 全线
   null → 控制台核价后回填（用户侧）。
 
+## 2026-11-13 · Day 3 收尾：一键离线 demo 工具链 + README 重写（均在线验证）
+
+### 演示工具链（`scripts/demo.sh` + `scripts/seed_demo.py`）
+- 动机：mock 模式的 live 提取是**诚实的空操作**——`MockLLMAdapter` 严格 FIFO，live 调用
+  抛 `ProviderError("mock llm: script queue exhausted")`，写管道如实落 `extraction_error`
+  且零写入（fail-closed）。要演示读路径（search/compiler）就得有种子；采用与测试套件/
+  评测同款做法：**声明式脚本化 mock**（`MockLLMAdapter([SCRIPTED_EXTRACTION], sticky=NOOP)`，
+  全部输出带 `provider=mock` 标签，机制展示专用，永不引用为实测）。
+- `demo.sh` 步骤 0 以 `/v1/health` 的 `llm_provider` 守门：发现 `.env` 残留真实 key
+  （`openai_compat`）即退出，并给出 `RECALLWEAVE_LLM_PROVIDER=mock make run` 重启指令——
+  离线演示强制 mock 模式。复跑行为也如实展示：种子再跑一遍，近重门以 sim≈1.0 拦截全部
+  三条（`ingest.near_dup` 日志），decisions 为空——dedup 在岗。
+- **过程中抓到一个真实合同 bug**：`service.ingest` 的 `session_id` 契约是 `uuid.UUID`
+  对象（API 路径由 pydantic 预解析；种子脚本直传 str 触发 SQLAlchemy 绑定错误）——种子
+  脚本改传 `uuid.uuid4()`。写 demo 暴露真问题，正是 demo 的价值。
+- 在线验证（exit=0，SQLite + mock + hash 嵌入）：诚实空操作提取 → 种子 [ADD]×3 → 三泳道
+  混合检索（3 条命中 lanes 全 = vector+lexical+recency，RRF k=60）→ 编译器 141/600
+  tokens（persona 28 / headers 8 / profile 76 / working 29，episodic 0）→ SDK 视图
+  （fail-closed ingest 提示 + provider 标签）→ `/v1/stats`。
+- Makefile 增 `demo:` / `seed:` 目标；`docs/assets/api-docs-screenshot.png` 为 Swagger
+  UI 真实捕获（9 端点，API 描述自带诚实声明）。
+
+### README 重写（热门 GitHub 项目风格）
+- 居中 hero + 徽章：全部为**事实性静态徽章**（无伪造 CI 状态；GH Actions 管线自
+  `00612f6` 起存在：ruff→mypy→pytest→eval smoke + pg 集成双 job）+ 关键数字条，每个
+  数字 → 脚本 + write-once 文件：编译 p50 7.9ms@100 / 27.8ms@1000、检索 p50 4.5ms@100
+  （scope：进程内 SQLite + hash 嵌入单线程）、cache-stable 前缀 v2=1 vs v1 漂移=6、
+  LoCoMo 上 C3 以 ~1/5.6 context 打平 C0（LME 上 C0 context 是 C3 的 ~90×）、110
+  tests / mypy 0。
+- TOC 锚点按 GitHub slugger 规则（emoji + 变体选择符 U+FE0F 会被剥掉：`#️-架构` →
+  `#-架构`），13 条 TOC 链接经程序化校验全部可解析；`<div>` 配平（1/30, 272/278）。
+- 评测节如实转录 run7/run8 摘要（LME C0 0.0167 / C3 0.0；LoCoMo C0 0.25 / C3 0.2，
+  n=30，judge `deepseek-v4-pro` 与回答 `deepseek-flash` 解耦）：**负结果原样呈报**——
+  C3 未超 C0，立得住的是上下文开销差；进简历仍以 30 题人工复核为门槛（用户侧，盲评
+  草稿已就绪）。
+
+### 收尾质量门（2026-11-13 复核）
+- `make lint` exit=0（ruff check + format，73 files）· `make typecheck` 0 errors
+  （32 files）· `uv run pytest` **110 passed + 1 skipped**（pg 集成需 PG，离线默认跳）。
+
 ## 修正登记（对 proposal 的回写）
 见 `agent-proposals/A-RecallWeave/PROPOSAL.md` §14 修订记录（A1–A7），对应 ADR-001..006
 （ADR-006 已含 2026-11-09 在线化修订段）。
