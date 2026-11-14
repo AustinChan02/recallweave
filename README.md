@@ -17,7 +17,7 @@
 ![SQLite](https://img.shields.io/badge/SQLite-fallback-orange?logo=sqlite&logoColor=white)
 ![ruff](https://img.shields.io/badge/ruff-format%20%2B%20lint-261230?logo=ruff&logoColor=white)
 ![mypy](https://img.shields.io/badge/mypy-0%20errors-blue)
-![Tests](https://img.shields.io/badge/tests-110%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-112%20passed%20%2B%201%20skipped-brightgreen)
 ![CI](https://img.shields.io/badge/CI-GitHub%20Actions%20(suite%20%2B%20pg)-2088FF?logo=githubactions&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-black)
 
@@ -25,7 +25,7 @@
 
 | 编译器延迟(读路径) | 混合检索 | cache-stable 前缀 | 上下文开销 | 质量 |
 |:---:|:---:|:---:|:---:|:---:|
-| **p50 7.9ms @100 条**<br>27.8ms @1000 条 | **p50 4.5ms @100 条**<br>三路 RRF 融合 | **1 个唯一前缀**(v2)<br>vs 漂移版 6 个 | **C3 比 C0 省 ~5.6× context**<br>(LoCoMo-t30 同精度带) | **110 tests passing**<br>mypy 0 errors |
+| **p50 7.9ms @100 条**<br>27.8ms @1000 条 | **p50 4.5ms @100 条**<br>三路 RRF 融合 | **1 个唯一前缀**(v2)<br>vs 漂移版 6 个 | **C3 比 C0 省 ~5.6× context**<br>(LoCoMo-t30 同精度带) | **112 tests passing**<br>mypy 0 errors |
 
 </div>
 
@@ -117,7 +117,7 @@ uv venv --python 3.12 && uv sync --extra dev
 RECALLWEAVE_LLM_PROVIDER=mock make run    # http://127.0.0.1:8100
 
 # 3) 测试 / 质量门(仓库标准:全绿才算完)
-make test          # 110 passed + 1 skipped(pg 集成,需 PG)
+make test          # 112 passed + 1 skipped(pg 集成未设 env 自动 skip)
 make lint          # ruff check + format,73 files 全绿
 make typecheck     # mypy,0 errors in 32 files
 ```
@@ -230,8 +230,8 @@ recallweave/
 ├── bench/           # latency.py · cache_ab.py + write-once results
 ├── scripts/         # demo.sh(一键演示) · demo_offline.py(零服务版) · seed_demo.py(声明式种子)
 │                  #  · forget.py · download_data.py · make_human_review.py(盲评草稿)
-├── tests/           # 110 offline + pg integration(Testcontainers 式 service container in CI)
-└── docs/            # architecture.md · api.md · eval-datasets.md · TODO.md · devlog.md · decisions/
+├── tests/           # 112 passed + 1 skipped(pg 集成需 env;CI 用 service container)
+└── docs/            # architecture.md · api.md · tech/(9 篇模块级深潜) · eval-datasets.md · TODO.md · devlog.md · decisions/
 ```
 
 ## 🗺️ Roadmap
@@ -263,6 +263,7 @@ recallweave/
 | [bench/results/](bench/results/) | 延迟基准 + cache-stable A/B(离线 + 线上双份) |
 | [docs/TODO.md](docs/TODO.md) | 全部待办的实施步骤与验收口径(含用户侧清单) |
 | [docs/architecture.md](docs/architecture.md) | 已实现事实 + 与 proposal 的偏差登记(全在 ADR) |
+| [docs/tech/README.md](docs/tech/README.md) | **模块级技术文档**(9 篇):写/读管道逐函数 · 9 端点实测样例 · 全表逐列 · 48 个环境变量 · 评测协议;每条事实标注来源路径 |
 | [docs/eval-datasets.md](docs/eval-datasets.md) | 数据集来源 / 许可 / 预处理 / 已知偏差 |
 | [docs/decisions/](docs/decisions/) | ADR(含 ADR-003 cache-stable 铁律 + ADR-006 在线化修订) |
 | [docs/devlog.md](docs/devlog.md) | 全程试错记录(保留全部失败,不删) |

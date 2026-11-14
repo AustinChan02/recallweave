@@ -1,5 +1,8 @@
 # HTTP API（proposal §5）
 
+> 逐端点深潜(请求/响应实测 JSON、字段约束、错误语义)见
+> [docs/tech/05-api-reference.md](tech/05-api-reference.md);本页是快查表。
+
 Base: `http://127.0.0.1:8100`（`make run`）。OpenAPI 文档：`/docs`。
 
 认证：`Authorization: Bearer <token>`；token→user_id 的映射来自
@@ -15,7 +18,8 @@ session_id 只是分组字段。错误模型统一 `{code, message, detail}`。
 | POST | `/v1/context:compile` | body `{session_id?, messages[], budget_tokens?}` → `{context_messages, trace[], usage{budget, layers, caps,...}, provider:"local-compiler"}` |
 | GET | `/v1/memories/{id}` | 任意状态详情（含 superseded 链字段） |
 | DELETE | `/v1/memories/{id}` | 软删（status=deleted, 封口 valid_to） |
-| POST | `/v1/reflect` | **501 not_implemented**（P1 未实现，诚实 stub） |
+| POST | `/v1/sessions/{session_id}:summarize` | 路径参数(`force=True`)→ `{summarized, seq?, content?, token_est?, turns_covered, provider, note?}`(P1.a 滚动摘要) |
+| POST | `/v1/reflect` | 无 body → `{user_id, provider, threshold, scanned, clusters_found, decisions[], skipped[]}`(P1.c 聚簇消解,已实现) |
 | GET | `/v1/health` | `{status, app_version, app_env, db_dialect, llm_provider, embedding_provider, provider_note}` |
 | GET | `/v1/stats` | `{counts_by_status_kind: {active:fact: n, ...}}` |
 
@@ -34,7 +38,6 @@ session_id 只是分组字段。错误模型统一 `{code, message, detail}`。
 | 401 | auth_failed | 缺/错 bearer |
 | 404 | not_found | 记忆不存在或归属他人 |
 | 422 | invalid_request | schema 校验失败 |
-| 501 | not_implemented | /v1/reflect |
 | 502 | provider_error / provider_schema_error | LLM 4xx 或重试耗尽 |
 | 500 | config_error / internal_error | 配置/未预期（日志带堆栈，响应不带内部信息） |
 

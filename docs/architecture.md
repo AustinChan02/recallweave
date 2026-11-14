@@ -64,10 +64,14 @@ migrations/001_init_vector.sql（pgvector + HNSW；sqlite 表由 ensure_schema �
 （2）跨事务拿别处 session 的对象直接改字段不会 flush → UPDATE/DELETE 必须
 在写事务内 `session.get()` 重新 attach。devlog 里有完整记录。
 
-## 遗留（P1，未实现，接口留位）
+## P1 三项（原"未实现留位",2026-11-10 已全部落地）
 
-- `/v1/reflect` 返回 501（诚实 stub）。
-- 会话摘要（§4.4）未实现：episodic 层暂由 event 类记忆承担。
-- 遗忘归档（§4.5）未实现：衰变只作用于排序分。
-- 数据集下载（scripts/download_data.py）需先确认 LongMemEval/LoCoMo 的
-  发布版本与许可，才不会做"假下载器"。
+- `/v1/reflect` 为 P1.c 真实现:余弦 > 0.95 聚簇(union-find)→ 逐簇走冲突管道,
+  只做 status 迁移、永不物理删除(详见 [docs/tech/02-write-pipeline.md](tech/02-write-pipeline.md) §6)。
+- 会话摘要(P1.a)已实现:每 20 轮触发,`session_summaries` append-only;
+  编译器 episodic 层**摘要优先、event 回退**。
+- 遗忘归档(P1.b)已实现:未访问 > 30 天 **且** importance < 0.3 → `status=archived`
+  (可 restore,物理删除只有用户显式 DELETE)。
+- 数据集已 pin 并跑通真 provider 评测(run5–run8):LongMemEval-S(cleaned, MIT)
+  与 LoCoMo(CC BY-NC 4.0)的来源/sha256/许可见
+  [docs/eval-datasets.md](eval-datasets.md) 与 `configs/datasets.toml`。
